@@ -1,4 +1,4 @@
-lazy val amyc = (project in file("."))
+lazy val spp = (project in file("."))
   .disablePlugins(plugins.JUnitXmlReportPlugin) 
   .settings(
     name := "spp",
