@@ -18,7 +18,7 @@ object Tokens {
     final case class Keyword(name: String) extends Token
     final case class Identifier(name: String) extends Token
 
-    final case class StringLiteral(value: String) extends Token
+    final case class StringLiteral(prefix: Option[String], value: String) extends Token
     final case class FormatStringLiteral(value: String) extends Token
     final case class BytesLiteral(value: String) extends Token
     
@@ -30,4 +30,5 @@ object Tokens {
     final case class Delimiter(del: String) extends Token
 
     final case class Space() extends Token
+    final case class Comment() extends Token
 }
