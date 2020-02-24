@@ -32,6 +32,16 @@ with CharRegExps {
         else StringLiteral(None, value)
     }
 
+    def parseBigInt(seq: Seq[Char], base: Int): BigInt = {
+        // remove prefix (ex: 0b) and grouping characters
+        def clean(seq: Seq[Char]) = seq.drop(2).filter(_ != '_')
+
+        clean(seq).reverse.zipWithIndex.foldLeft(BigInt(0)){
+            case (bg, (char, i)) =>
+                bg + BigInt(base).pow(i) * Integer.parseInt(char.toString, base)
+        }
+    }
+
     def not(exluded: Char*) = elem(!exluded.contains(_))
 
     val escapedChar = elem('\\') ~ any // any should be "ascii"
@@ -76,8 +86,16 @@ with CharRegExps {
         opt(stringPrefix) ~ (shortString | longString) |>
             {(s, range) => makeStringLiteral(s.mkString).setPos(range._1)},
         
-
-
+        // integer literals
+        nonZero ~ many(opt(elem('_')) ~ digit) | many1(elem('0')) ~ many(opt(elem('_')) ~ elem('0')) |>
+            {(s, range) => IntLiteral(BigInt(s.filter(_ != '_').mkString)).setPos(range._1)},
+        elem('0') ~ oneOf("bB") ~ many1(opt(elem('_')) ~ oneOf("01")) |>
+            {(s, range) => IntLiteral(parseBigInt(s, 2)).setPos(range._1)},
+        elem('0') ~ oneOf("oO") ~ many1(opt(elem('_')) ~ elem(c => c >= '0' && c <= '7')) |>
+            {(s, range) => IntLiteral(parseBigInt(s, 8)).setPos(range._1)},
+        elem('0') ~ oneOf("xX") ~ many1(opt(elem('_')) ~ hex) |>
+            {(s, range) => IntLiteral(parseBigInt(s, 16)).setPos(range._1)},
+        
     )
 
     def run(ctx: Context)(sources: List[File]): Iterator[Token] = {

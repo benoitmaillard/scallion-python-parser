@@ -1,6 +1,7 @@
 package spp.structure
 
 import spp.utils.Positioned
+import math.BigInt
 
 object Tokens {
     sealed abstract class Token extends Positioned with Product {
@@ -22,7 +23,7 @@ object Tokens {
     final case class FormatStringLiteral(value: String) extends Token
     final case class BytesLiteral(value: String) extends Token
     
-    final case class IntLiteral(value: Int) extends Token
+    final case class IntLiteral(value: BigInt) extends Token
     final case class FloatLiteral(value: Float) extends Token
     final case class ImaginaryLiteral(value: Float) extends Token
     
