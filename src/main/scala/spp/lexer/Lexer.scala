@@ -73,6 +73,9 @@ with CharRegExps {
     val idStart = elem(_.isLetter) | elem('_')
     val idContinue = idStart | elem(_.isDigit)
 
+    val digitPart = digit ~ many(opt(elem('_')) ~ digit)
+    val pointFloat = opt(digitPart) ~ elem('.') ~ digitPart | digitPart ~ elem('.')
+    val exponentFloat = (digitPart | pointFloat) ~ oneOf("eE") ~ opt(oneOf("+-")) ~ digitPart
     
     val lexer: Lexer = Lexer(
         elem(_.isWhitespace) |> Space(),
@@ -95,7 +98,12 @@ with CharRegExps {
             {(s, range) => IntLiteral(parseBigInt(s, 8)).setPos(range._1)},
         elem('0') ~ oneOf("xX") ~ many1(opt(elem('_')) ~ hex) |>
             {(s, range) => IntLiteral(parseBigInt(s, 16)).setPos(range._1)},
-        
+
+        // floating point and imaginary literals
+        pointFloat | exponentFloat |>
+            {(s, range) => FloatLiteral(s.filter(_ != '_').mkString.toFloat)},
+        (pointFloat | exponentFloat | digitPart) ~ oneOf("jJ") |>
+            {(s, range) => ImaginaryLiteral(s.filter(_ != '_').mkString.dropRight(1).toFloat)}
     )
 
     def run(ctx: Context)(sources: List[File]): Iterator[Token] = {
