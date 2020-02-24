@@ -1,6 +1,7 @@
 package spp
 import utils._
 import spp.parsing._
+import spp.lexer._
 import java.io.File
 
 object Main {

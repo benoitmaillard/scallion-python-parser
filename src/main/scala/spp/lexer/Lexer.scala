@@ -1,4 +1,4 @@
-package spp.parsing
+package spp.lexer
 
 import spp.utils._
 import spp.structure.Tokens._
@@ -60,7 +60,6 @@ with CharRegExps {
         word("\"" * 3) ~ many(not('\\') | escapedChar) ~ (not('\\', '"') | escapedChar) ~ word("\"" * 3) |
         word("'" * 3) ~ many(not('\\') | escapedChar) ~ (not('\\', '\'') | escapedChar) ~ word("'" * 3)
 
-
     val idStart = elem(_.isLetter) | elem('_')
     val idContinue = idStart | elem(_.isDigit)
 
@@ -75,7 +74,8 @@ with CharRegExps {
             {(s, range) => Identifier(s.mkString).setPos(range._1)},
 
         opt(stringPrefix) ~ (shortString | longString) |>
-            {(s, range) => makeStringLiteral(s.mkString).setPos(range._1)}
+            {(s, range) => makeStringLiteral(s.mkString).setPos(range._1)},
+        
 
 
     )
