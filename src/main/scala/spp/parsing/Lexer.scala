@@ -32,7 +32,9 @@ with CharRegExps {
         else StringLiteral(None, value)
     }
 
-    val escapedChar = elem('\\') ~ any
+    def not(exluded: Char*) = elem(!exluded.contains(_))
+
+    val escapedChar = elem('\\') ~ any // any should be "ascii"
     
     val keyword = oneOfWords(
         "False", "None", "True", "and", "as", "assert", "async",
@@ -52,8 +54,11 @@ with CharRegExps {
         elem('\"') ~ many(elem(!"\\\"\n".contains(_)) | escapedChar) ~ elem('\"')
 
     val longString =
-        word("\"\"\"") ~ many(elem(_ != '\\') | escapedChar) ~ word("\"\"\"") |
-        word("'''") ~ many(elem(_ != '\\') | escapedChar) ~ word("'''")
+        word("\"" * 6) | word("'" * 6) |
+        /* the string literal stops as soon as we get 3 consecutive " or ', last character of a long string
+         * cannot be the same character as the delimiter */
+        word("\"" * 3) ~ many(not('\\') | escapedChar) ~ (not('\\', '"') | escapedChar) ~ word("\"" * 3) |
+        word("'" * 3) ~ many(not('\\') | escapedChar) ~ (not('\\', '\'') | escapedChar) ~ word("'" * 3)
 
 
     val idStart = elem(_.isLetter) | elem('_')
