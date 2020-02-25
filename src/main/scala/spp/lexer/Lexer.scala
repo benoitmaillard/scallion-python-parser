@@ -87,9 +87,24 @@ with CharRegExps {
     val digitPart = digit ~ many(opt(elem('_')) ~ digit)
     val pointFloat = opt(digitPart) ~ elem('.') ~ digitPart | digitPart ~ elem('.')
     val exponentFloat = (digitPart | pointFloat) ~ oneOf("eE") ~ opt(oneOf("+-")) ~ digitPart
+
+    val physicalNewLine = oneOfWords("\n", "\r\n", "\r")
     
     val lexer: Lexer = Lexer(
         elem(_.isWhitespace) |> Space(),
+
+        // explicit line joining
+        elem('\\') ~ physicalNewLine |> Space(),
+        // indentation
+        many(physicalNewLine ~ many(whiteSpace)) ~ physicalNewLine ~ many(whiteSpace) |>
+            {(s, range) =>
+                val nIndent = s.reverse.indexWhere(c => c == '\n' || c == '\r')
+                PhysicalIndent(nIndent).setPos(range._1)
+            },
+        
+            // TODO EOF
+            
+        // comment
         elem('#') ~ many(any) ~ elem('\n') |> Comment(),
 
         keyword |>
@@ -130,10 +145,26 @@ with CharRegExps {
             )
         })
         
-        tokens.filter {
+        val tokensList = tokens.filter {
             case Space() => false
             case _ => true
+        }.foldLeft(List(0), Iterator[Token]()){
+            case ((stack, acc), token@PhysicalIndent(lvl)) =>
+                if (lvl > stack.head)
+                    (lvl :: stack, acc ++ Iterator(Newline().setPos(token.position), Indent()))
+                else {
+                    println(lvl)
+                    val updatedStack = stack.dropWhile(lvl < _)
+                    val nDedent = stack.length - updatedStack.length
+                    if (updatedStack.head == lvl) {
+                        (updatedStack, acc ++ Iterator(Newline().setPos(token.position)) ++ Iterator.fill(nDedent)(Dedent()))
+                    }
+                    else throw AmycFatalError("Invalid indentation")
+                }
+            case ((stack, acc), token) => (stack, acc ++ Iterator(token))
         }
+
+        tokensList._2
     }
 }
 
