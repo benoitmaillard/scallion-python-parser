@@ -6,6 +6,7 @@ import spp.structure.Tokens._
 import java.io.File
 import scallion.lexical._
 import scallion.input._
+import scala.annotation.tailrec
 
 object Lexer extends Pipeline[List[File], Iterator[Token]] with Lexers
 with CharRegExps {
@@ -144,28 +145,46 @@ with CharRegExps {
                 Source.fromFile(file, SourcePositioner(file))
             )
         })
-        
-        val tokensList = tokens.filter {
+
+        val filtered = tokens.filter {
             case Space() => false
             case _ => true
-        }.foldLeft(List(0), Iterator[Token]()){
+        }
+
+        val lineJoined = fixImplicitLineJoin(filtered).iterator
+        fixIdent(lineJoined).iterator
+    }
+
+    def fixIdent(tokens: Iterator[Token]): List[Token] = {
+        tokens.foldLeft(List(0), List[Token]()) {
             case ((stack, acc), token@PhysicalIndent(lvl)) =>
                 if (lvl > stack.head)
-                    (lvl :: stack, acc ++ Iterator(Newline().setPos(token.position), Indent()))
+                    (lvl :: stack, Indent() :: Newline().setPos(token.position) :: acc)
                 else {
-                    println(lvl)
                     val updatedStack = stack.dropWhile(lvl < _)
                     val nDedent = stack.length - updatedStack.length
                     if (updatedStack.head == lvl) {
-                        (updatedStack, acc ++ Iterator(Newline().setPos(token.position)) ++ Iterator.fill(nDedent)(Dedent()))
+                        (updatedStack, (List.fill(nDedent)(Dedent()) ::: List(Newline().setPos(token.position))) ::: acc)
                     }
                     else throw AmycFatalError("Invalid indentation")
                 }
-            case ((stack, acc), token) => (stack, acc ++ Iterator(token))
-        }
-
-        tokensList._2
+            case ((stack, acc), token) => (stack, token :: acc)
+        }._2.reverse
+        
     }
+
+    def fixImplicitLineJoin(tokens: Iterator[Token]): List[Token] = {
+        tokens.foldLeft(0, List[Token]()) {
+            case ((depth, acc), t@Delimiter(del)) =>
+                if ("({[".contains(del)) (depth + 1, t :: acc)
+                else if (")}]".contains(del)) (depth - 1, t :: acc)
+                else (depth, t :: acc)
+            case ((depth, acc), t@PhysicalIndent(_)) =>
+                if (depth > 0) (depth, acc)
+                else (depth, t :: acc)
+            case ((depth, acc), t) => (depth, t :: acc)
+        }
+    }._2.reverse
 }
 
 object PrintTokens extends Pipeline[Iterator[Token], Unit] {
