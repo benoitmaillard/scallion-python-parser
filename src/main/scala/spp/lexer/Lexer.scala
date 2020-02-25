@@ -54,6 +54,17 @@ with CharRegExps {
         "pass", "raise", "return", "try", "while", "with", "yield"
     )
 
+    val operator = oneOfWords(
+        "+", "-", "*", "**", "/", "//", "%", "@", "<<", ">>", "&",
+        "|", "^", "~", ":=", "<", ">", "<=", ">=", "==", "!="
+    )
+
+    val delimiters = oneOfWords(
+        "(", ")", "[", "]", "{", "}", ",", ":", ".", ";", "@", "=",
+        "->", "+=", "-=", "*=", "/=", "//", "%=", "@=", "&=", "|=",
+        "^=", ">>", "<<", "**="
+    )
+
     val stringPrefix = oneOfWords(
         "r", "u", "R", "U", "f", "F", "fr", "Fr", "fR", "FR",
         "rf", "rF", "Rf", "RF"
@@ -103,7 +114,13 @@ with CharRegExps {
         pointFloat | exponentFloat |>
             {(s, range) => FloatLiteral(s.filter(_ != '_').mkString.toFloat)},
         (pointFloat | exponentFloat | digitPart) ~ oneOf("jJ") |>
-            {(s, range) => ImaginaryLiteral(s.filter(_ != '_').mkString.dropRight(1).toFloat)}
+            {(s, range) => ImaginaryLiteral(s.filter(_ != '_').mkString.dropRight(1).toFloat)},
+
+    
+        operator |> {(s, range) => Operator(s.mkString).setPos(range._1)},
+        delimiters |> {(s, range) => Delimiter(s.mkString).setPos(range._1)}
+
+
     )
 
     def run(ctx: Context)(sources: List[File]): Iterator[Token] = {
