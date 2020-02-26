@@ -8,20 +8,77 @@ import scallion.lexical._
 import scallion.input._
 import scala.annotation.tailrec
 
+/**
+  * Takes an list of files as input and produces the corresponding sequence
+  * of tokens
+  */
 object Lexer extends Pipeline[List[File], Iterator[Token]] with Lexers
 with CharRegExps {
   type Token = spp.structure.Tokens.Token
   type Position = SourcePosition
-  
-  def oneOfWords(words: String*) = {
-    words.map(word(_)).reduce(_ | _)
+
+  /**
+    * Returns an iterator with the resulting tokens from the given files
+    *
+    * @param ctx context for compilation
+    * @param sources list of file
+    * @return resulting tokens
+    */
+  def run(ctx: Context)(sources: List[File]): Iterator[Token] = {
+    val tokens = sources.foldLeft(Iterator[Token]())((acc, file) => {
+      acc ++ lexer.spawn(
+        Source.fromFile(file, SourcePositioner(file))
+      )
+    })
+    
+    val filtered = tokens.filter {
+      case Space() => false
+      case _ => true
+    }
+    
+    val lineJoined = fixImplicitLineJoin(filtered).iterator
+    fixIndent(lineJoined).iterator
   }
+
+  // Transforms counts of indentation spaces into INDENT, DEDENT and NEWLINE
+  def fixIndent(tokens: Iterator[Token]): List[Token] = {
+    tokens.foldLeft(List(0), List[Token]()) {
+      case ((stack, acc), token@PhysicalIndent(lvl)) =>
+        if (lvl > stack.head)
+          (lvl :: stack, Indent() :: Newline().setPos(token.position) :: acc)
+        else {
+          val updatedStack = stack.dropWhile(lvl < _)
+          val nDedent = stack.length - updatedStack.length
+        if (updatedStack.head == lvl) {
+          (updatedStack, (List.fill(nDedent)(Dedent()) ::: List(Newline().setPos(token.position))) ::: acc)
+        }
+        else throw AmycFatalError("Invalid indentation")
+      }
+      case ((stack, acc), token) => (stack, token :: acc)
+    }._2.reverse
+    
+  }
+  
+  // Removing line breaks that are placed inside parenthesis, curly braces or square brackets
+  def fixImplicitLineJoin(tokens: Iterator[Token]): List[Token] = {
+    tokens.foldLeft(0, List[Token]()) {
+      case ((depth, acc), t@Delimiter(del)) =>
+        if ("({[".contains(del)) (depth + 1, t :: acc)
+        else if (")}]".contains(del)) (depth - 1, t :: acc)
+        else (depth, t :: acc)
+      case ((depth, acc), t@PhysicalIndent(_)) =>
+        if (depth > 0) (depth, acc)
+        else (depth, t :: acc)
+      case ((depth, acc), t) => (depth, t :: acc)
+    }
+  }._2.reverse
   
   def removeDelimiters(str: String, delimiter: Char) = {
     val nDelimiters = str.indexWhere(_ != delimiter)
     str.drop(nDelimiters).dropRight(nDelimiters)
   }
   
+  // Splits a raw literal into prefix and value, removes delimiters
   def makeStringLiteral(input: String): StringLiteral = {
     val delimiter = input.find(c => c == '"' || c == '\'').get
     val prefixLength = input.indexOf(delimiter)
@@ -44,37 +101,24 @@ with CharRegExps {
   }
   
   def not(exluded: Char*) = elem(!exluded.contains(_))
+
+  def oneOfWords(words: String*) = {
+    words.map(word(_)).reduce(_ | _)
+  }
   
-  val escapedChar = elem('\\') ~ any // any should be "ascii"
-  
-  val keyword = oneOfWords(
-    "False", "None", "True", "and", "as", "assert", "async",
-    "await", "break", "class", "continue", "def", "del", "elif",
-    "else", "except", "finally", "for", "from", "global", "if",
-    "import", "in", "is", "lambda", "nonlocal", "not", "or",
-    "pass", "raise", "return", "try", "while", "with", "yield"
-  )
-  
-  val operator = oneOfWords(
-    "+", "-", "*", "**", "/", "//", "%", "@", "<<", ">>", "&",
-    "|", "^", "~", ":=", "<", ">", "<=", ">=", "==", "!="
-  )
-  
-  val delimiters = oneOfWords(
-    "(", ")", "[", "]", "{", "}", ",", ":", ".", ";", "@", "=",
-    "->", "+=", "-=", "*=", "/=", "//", "%=", "@=", "&=", "|=",
-    "^=", ">>", "<<", "**="
-  )
-  
+  // identifiers
+  val idStart = elem(_.isLetter) | elem('_')
+  val idContinue = idStart | elem(_.isDigit)
+
+  // string literals
   val stringPrefix = oneOfWords(
     "r", "u", "R", "U", "f", "F", "fr", "Fr", "fR", "FR",
     "rf", "rF", "Rf", "RF"
   )
-  
+  val escapedChar = elem('\\') ~ any // any should be "ascii"
   val shortString =
     elem('\'') ~ many(elem(!"\\\'\n".contains(_)) | escapedChar) ~ elem('\'') |
     elem('\"') ~ many(elem(!"\\\"\n".contains(_)) | escapedChar) ~ elem('\"')
-  
   val longString =
     word("\"" * 6) | word("'" * 6) |
     /* the string literal stops as soon as we get 3 consecutive " or ', last character of a long string
@@ -82,21 +126,25 @@ with CharRegExps {
     word("\"" * 3) ~ many(not('\\') | escapedChar) ~ (not('\\', '"') | escapedChar) ~ word("\"" * 3) |
     word("'" * 3) ~ many(not('\\') | escapedChar) ~ (not('\\', '\'') | escapedChar) ~ word("'" * 3)
   
-  val idStart = elem(_.isLetter) | elem('_')
-  val idContinue = idStart | elem(_.isDigit)
+  // floating point literals
+  val floatDigitPart = digit ~ many(opt(elem('_')) ~ digit)
+  val pointFloat = opt(floatDigitPart) ~ elem('.') ~ floatDigitPart | floatDigitPart ~ elem('.')
+  val exponentFloat = (floatDigitPart | pointFloat) ~ oneOf("eE") ~ opt(oneOf("+-")) ~ floatDigitPart
   
-  val digitPart = digit ~ many(opt(elem('_')) ~ digit)
-  val pointFloat = opt(digitPart) ~ elem('.') ~ digitPart | digitPart ~ elem('.')
-  val exponentFloat = (digitPart | pointFloat) ~ oneOf("eE") ~ opt(oneOf("+-")) ~ digitPart
-  
+  // indentation
   val physicalNewLine = oneOfWords("\n", "\r\n", "\r")
   
   val lexer: Lexer = Lexer(
+    // spaces that are not placed after a linebreak are ignored
     elem(_.isWhitespace) |> Space(),
     
-    // explicit line joining
+    // explicit line joining with '\'
     elem('\\') ~ physicalNewLine |> Space(),
-    // indentation
+
+    // comment
+    elem('#') ~ many(any) ~ elem('\n') |> Comment(),
+
+    // counting indentation spaces, used to generate INDENT/DEDENT/NEWLINE later
     many(physicalNewLine ~ many(whiteSpace)) ~ physicalNewLine ~ many(whiteSpace) |>
       {(s, range) =>
         val nIndent = s.reverse.indexWhere(c => c == '\n' || c == '\r')
@@ -105,18 +153,38 @@ with CharRegExps {
     
     // TODO EOF
     
-    // comment
-    elem('#') ~ many(any) ~ elem('\n') |> Comment(),
-    
-    keyword |>
+    // keywords
+    oneOfWords(
+      "False", "None", "True", "and", "as", "assert", "async",
+      "await", "break", "class", "continue", "def", "del", "elif",
+      "else", "except", "finally", "for", "from", "global", "if",
+      "import", "in", "is", "lambda", "nonlocal", "not", "or",
+      "pass", "raise", "return", "try", "while", "with", "yield"
+    ) |>
       {(s, range) => Keyword(s.mkString).setPos(range._1)},
+
+    // operators
+    oneOfWords(
+      "+", "-", "*", "**", "/", "//", "%", "@", "<<", ">>", "&",
+      "|", "^", "~", ":=", "<", ">", "<=", ">=", "==", "!="
+    ) |> {(s, range) => Operator(s.mkString).setPos(range._1)},
+
+    // delimiters
+    oneOfWords(
+      "(", ")", "[", "]", "{", "}", ",", ":", ".", ";", "@", "=",
+      "->", "+=", "-=", "*=", "/=", "//", "%=", "@=", "&=", "|=",
+      "^=", ">>", "<<", "**="
+    ) |> {(s, range) => Delimiter(s.mkString).setPos(range._1)},
+
+    // identifiers
     idStart ~ many(idContinue) |>
       {(s, range) => Identifier(s.mkString).setPos(range._1)},
     
+    // string literals
     opt(stringPrefix) ~ (shortString | longString) |>
       {(s, range) => makeStringLiteral(s.mkString).setPos(range._1)},
     
-    // integer literals
+    // integer literals (decimal, binary, octal, hex)
     nonZero ~ many(opt(elem('_')) ~ digit) | many1(elem('0')) ~ many(opt(elem('_')) ~ elem('0')) |>
       {(s, range) => IntLiteral(BigInt(s.filter(_ != '_').mkString)).setPos(range._1)},
     elem('0') ~ oneOf("bB") ~ many1(opt(elem('_')) ~ oneOf("01")) |>
@@ -126,65 +194,19 @@ with CharRegExps {
     elem('0') ~ oneOf("xX") ~ many1(opt(elem('_')) ~ hex) |>
       {(s, range) => IntLiteral(parseBigInt(s, 16)).setPos(range._1)},
     
-    // floating point and imaginary literals
+    // floating point literals
     pointFloat | exponentFloat |>
       {(s, range) => FloatLiteral(s.filter(_ != '_').mkString.toFloat)},
-    (pointFloat | exponentFloat | digitPart) ~ oneOf("jJ") |>
+
+    // imaginary literals
+    (pointFloat | exponentFloat | floatDigitPart) ~ oneOf("jJ") |>
       {(s, range) => ImaginaryLiteral(s.filter(_ != '_').mkString.dropRight(1).toFloat)},
-    
-    
-    operator |> {(s, range) => Operator(s.mkString).setPos(range._1)},
-    delimiters |> {(s, range) => Delimiter(s.mkString).setPos(range._1)}
   )
-  
-  def run(ctx: Context)(sources: List[File]): Iterator[Token] = {
-    val tokens = sources.foldLeft(Iterator[Token]())((acc, file) => {
-      acc ++ lexer.spawn(
-        Source.fromFile(file, SourcePositioner(file))
-      )
-    })
-    
-    val filtered = tokens.filter {
-      case Space() => false
-      case _ => true
-    }
-    
-    val lineJoined = fixImplicitLineJoin(filtered).iterator
-    fixIndent(lineJoined).iterator
-  }
-  
-  def fixIndent(tokens: Iterator[Token]): List[Token] = {
-    tokens.foldLeft(List(0), List[Token]()) {
-      case ((stack, acc), token@PhysicalIndent(lvl)) =>
-        if (lvl > stack.head)
-          (lvl :: stack, Indent() :: Newline().setPos(token.position) :: acc)
-        else {
-          val updatedStack = stack.dropWhile(lvl < _)
-          val nDedent = stack.length - updatedStack.length
-        if (updatedStack.head == lvl) {
-          (updatedStack, (List.fill(nDedent)(Dedent()) ::: List(Newline().setPos(token.position))) ::: acc)
-        }
-        else throw AmycFatalError("Invalid indentation")
-      }
-      case ((stack, acc), token) => (stack, token :: acc)
-    }._2.reverse
-    
-  }
-  
-  def fixImplicitLineJoin(tokens: Iterator[Token]): List[Token] = {
-    tokens.foldLeft(0, List[Token]()) {
-      case ((depth, acc), t@Delimiter(del)) =>
-        if ("({[".contains(del)) (depth + 1, t :: acc)
-        else if (")}]".contains(del)) (depth - 1, t :: acc)
-        else (depth, t :: acc)
-      case ((depth, acc), t@PhysicalIndent(_)) =>
-        if (depth > 0) (depth, acc)
-        else (depth, t :: acc)
-      case ((depth, acc), t) => (depth, t :: acc)
-    }
-  }._2.reverse
 }
 
+/**
+  * Displays each tokens on a separated line
+  */
 object PrintTokens extends Pipeline[Iterator[Token], Unit] {
   def run(ctx: Context)(tokens: Iterator[Token]) = {
     tokens.foreach(println(_))
