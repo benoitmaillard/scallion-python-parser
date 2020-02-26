@@ -32,16 +32,20 @@ with CharRegExps {
     })
     
     val filtered = tokens.filter {
-      case Space() => false
+      case Space() | Comment() => false
       case _ => true
     }
     
     val lineJoined = fixImplicitLineJoin(filtered).iterator
-    fixIndent(lineJoined).iterator
+    val withIndent = fixIndent(lineJoined, ctx).iterator
+    withIndent map {
+      case t@ErrorToken(msg) => ctx.reporter.fatal("Invalid token at " + t.position )
+      case t => t
+    }
   }
 
   // Transforms counts of indentation spaces into INDENT, DEDENT and NEWLINE
-  def fixIndent(tokens: Iterator[Token]): List[Token] = {
+  def fixIndent(tokens: Iterator[Token], ctx: Context): List[Token] = {
     tokens.foldLeft(List(0), List[Token]()) {
       case ((stack, acc), token@PhysicalIndent(lvl)) =>
         if (lvl > stack.head)
@@ -52,7 +56,7 @@ with CharRegExps {
         if (updatedStack.head == lvl) {
           (updatedStack, (List.fill(nDedent)(Dedent()) ::: List(Newline().setPos(token.position))) ::: acc)
         }
-        else throw AmycFatalError("Invalid indentation")
+        else ctx.reporter.fatal("Incorrect indentation at" + token.position)
       }
       case ((stack, acc), token) => (stack, token :: acc)
     }._2.reverse
@@ -135,14 +139,14 @@ with CharRegExps {
   val physicalNewLine = oneOfWords("\n", "\r\n", "\r")
   
   val lexer: Lexer = Lexer(
-    // spaces that are not placed after a linebreak are ignored
-    elem(_.isWhitespace) |> Space(),
-    
+    // spaces that are not placed after a linebreak have no particular meaning
+    elem(_.isWhitespace) |> {(s, range) => Space().setPos(range._1)},
+
     // explicit line joining with '\'
-    elem('\\') ~ physicalNewLine |> Space(),
+    elem('\\') ~ physicalNewLine |> {(s, range) => Space().setPos(range._1)},
 
     // comment
-    elem('#') ~ many(any) ~ elem('\n') |> Comment(),
+    elem('#') ~ many(elem(_ != '\n')) |> {(s, range) => Comment().setPos(range._1)},
 
     // counting indentation spaces, used to generate INDENT/DEDENT/NEWLINE later
     many(physicalNewLine ~ many(whiteSpace)) ~ physicalNewLine ~ many(whiteSpace) |>
@@ -150,8 +154,6 @@ with CharRegExps {
         val nIndent = s.reverse.indexWhere(c => c == '\n' || c == '\r')
         PhysicalIndent(nIndent).setPos(range._1)
       },
-    
-    // TODO EOF
     
     // keywords
     oneOfWords(
@@ -201,7 +203,11 @@ with CharRegExps {
     // imaginary literals
     (pointFloat | exponentFloat | floatDigitPart) ~ oneOf("jJ") |>
       {(s, range) => ImaginaryLiteral(s.filter(_ != '_').mkString.dropRight(1).toFloat)},
-  )
+  ) onError {
+    (cs, range) => ErrorToken(cs.mkString).setPos(range._1)
+  } onEnd {
+    pos => EOF().setPos(pos)
+  }
 }
 
 /**
