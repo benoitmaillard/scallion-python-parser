@@ -1,6 +1,6 @@
 package spp.structure
 
 object AbstractSyntaxTree {
-    case class Program()
-    
+  case class Program()
+  
 }
