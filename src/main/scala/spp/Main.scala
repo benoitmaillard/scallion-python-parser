@@ -14,11 +14,11 @@ object Main {
         context.reporter.fatal("No source files provided")
       } else {
         pipeline.run(context)(
-        context.files.map(name => {
-          val file = new File(name)
-          if (file.exists()) file
-          else context.reporter.fatal(s"File $name not found") 
-        })
+          context.files.map(name => {
+            val file = new File(name)
+            if (file.exists()) file
+            else context.reporter.fatal(s"File $name not found") 
+          })
         )
       }
       
