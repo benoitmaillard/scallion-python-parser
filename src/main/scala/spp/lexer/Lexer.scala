@@ -137,13 +137,21 @@ with CharRegExps {
   
   // indentation
   val physicalNewLine = oneOfWords("\n", "\r\n", "\r")
+  val noLineBreak = elem(c => c != '\n' && c != '\r')
   
   val lexer: Lexer = Lexer(
     // spaces that are not placed after a linebreak have no particular meaning
     elem(_.isWhitespace) |> {(s, range) => Space().setPos(range._1)},
 
     // explicit line joining with '\'
-    elem('\\') ~ physicalNewLine |> {(s, range) => Space().setPos(range._1)},
+    elem('\\') ~ many(noLineBreak) ~ physicalNewLine |>
+      {(s, range) =>
+        // we make sure that the line break is directly after the '\'
+        if (s(1) == '\r' || s(1) == '\n')
+          Space().setPos(range._1)
+        else
+          ErrorToken("unexpected character after line continuation character")
+      },
 
     // comment
     elem('#') ~ many(elem(_ != '\n')) |> {(s, range) => Comment().setPos(range._1)},
