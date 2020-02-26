@@ -152,10 +152,10 @@ with CharRegExps {
         }
 
         val lineJoined = fixImplicitLineJoin(filtered).iterator
-        fixIdent(lineJoined).iterator
+        fixIndent(lineJoined).iterator
     }
 
-    def fixIdent(tokens: Iterator[Token]): List[Token] = {
+    def fixIndent(tokens: Iterator[Token]): List[Token] = {
         tokens.foldLeft(List(0), List[Token]()) {
             case ((stack, acc), token@PhysicalIndent(lvl)) =>
                 if (lvl > stack.head)
