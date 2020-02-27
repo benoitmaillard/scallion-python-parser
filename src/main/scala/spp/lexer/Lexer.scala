@@ -65,10 +65,10 @@ with CharRegExps {
     val lastLineLvl = stack.length - 1
     if (lastLineLvl > 0) {
       val eof = resTokens.head
-      eof :: List.fill(lastLineLvl)(Dedent()) ::: resTokens.tail
+      (eof :: List.fill(lastLineLvl)(Dedent()) ::: resTokens.tail).reverse
     } else {
-      resTokens
-    }.reverse
+      resTokens.reverse
+    }
   }
   
   // Removing line breaks that are placed inside parenthesis, curly braces or square brackets
