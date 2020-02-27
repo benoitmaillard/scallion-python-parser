@@ -29,23 +29,23 @@ with CharRegExps {
       acc ++ lexer.spawn(
         Source.fromFile(file, SourcePositioner(file))
       )
-    })
+    }).toList
     
     val filtered = tokens.filter {
       case Space() | Comment() => false
       case _ => true
     }
     
-    val lineJoined = fixImplicitLineJoin(filtered).iterator
-    val withIndent = fixIndent(lineJoined, ctx).iterator
-    withIndent map {
+    val lineJoined = fixImplicitLineJoin(filtered)
+    val withIndent = fixIndent(lineJoined, ctx)
+    withIndent.map {
       case t@ErrorToken(msg) => ctx.reporter.fatal("Invalid token at " + t.position )
       case t => t
-    }
+    }.iterator
   }
 
   // Transforms counts of indentation spaces into INDENT, DEDENT and NEWLINE
-  def fixIndent(tokens: Iterator[Token], ctx: Context): List[Token] = {
+  def fixIndent(tokens: List[Token], ctx: Context): List[Token] = {
     val (stack, resTokens) = tokens.foldLeft(List(0), List[Token]()) {
       case ((stack, acc), token@PhysicalIndent(lvl)) =>
         if (lvl > stack.head)
@@ -72,7 +72,7 @@ with CharRegExps {
   }
   
   // Removing line breaks that are placed inside parenthesis, curly braces or square brackets
-  def fixImplicitLineJoin(tokens: Iterator[Token]): List[Token] = {
+  def fixImplicitLineJoin(tokens: List[Token]): List[Token] = {
     tokens.foldLeft(0, List[Token]()) {
       case ((depth, acc), t@Delimiter(del)) =>
         if ("({[".contains(del)) (depth + 1, t :: acc)
