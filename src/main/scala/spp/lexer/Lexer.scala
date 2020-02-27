@@ -31,6 +31,13 @@ with CharRegExps {
       )
     }).toList
     
+    // make sure the file does not start with an indent
+    tokens match {
+      case (t:Space) :: tl =>
+        ctx.reporter.fatal("Unexpected indent at " + t.position)
+      case _ =>
+    }
+    
     val filtered = tokens.filter {
       case Space() | Comment() => false
       case _ => true
