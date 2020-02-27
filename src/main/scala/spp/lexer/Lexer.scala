@@ -46,7 +46,7 @@ with CharRegExps {
 
   // Transforms counts of indentation spaces into INDENT, DEDENT and NEWLINE
   def fixIndent(tokens: Iterator[Token], ctx: Context): List[Token] = {
-    tokens.foldLeft(List(0), List[Token]()) {
+    val (stack, resTokens) = tokens.foldLeft(List(0), List[Token]()) {
       case ((stack, acc), token@PhysicalIndent(lvl)) =>
         if (lvl > stack.head)
           (lvl :: stack, Indent() :: Newline().setPos(token.position) :: acc)
@@ -59,8 +59,16 @@ with CharRegExps {
         else ctx.reporter.fatal("Incorrect indentation at" + token.position)
       }
       case ((stack, acc), token) => (stack, token :: acc)
-    }._2.reverse
-    
+    }
+
+    // we make sure each indent token has a matching dedent token
+    val lastLineLvl = stack.length - 1
+    if (lastLineLvl > 0) {
+      val eof = resTokens.head
+      eof :: List.fill(lastLineLvl)(Dedent()) ::: resTokens.tail
+    } else {
+      resTokens
+    }.reverse
   }
   
   // Removing line breaks that are placed inside parenthesis, curly braces or square brackets
