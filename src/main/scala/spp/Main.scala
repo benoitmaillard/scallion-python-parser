@@ -13,13 +13,11 @@ object Main {
       if (context.files.isEmpty) {
         context.reporter.fatal("No source files provided")
       } else {
-        pipeline.run(context)(
-          context.files.map(name => {
-            val file = new File(name)
-            if (file.exists()) file
-            else context.reporter.fatal(s"File $name not found") 
-          })
-        )
+        pipeline.run(context){
+          val file = new File(context.files.head)
+          if (file.exists()) file
+          else context.reporter.fatal(s"File ${file.getName()} not found")
+        }
       }
       
       context.reporter.terminateIfErrors()

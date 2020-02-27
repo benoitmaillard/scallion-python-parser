@@ -12,7 +12,7 @@ import scala.annotation.tailrec
   * Takes an list of files as input and produces the corresponding sequence
   * of tokens
   */
-object Lexer extends Pipeline[List[File], Iterator[Token]] with Lexers
+object Lexer extends Pipeline[File, Iterator[Token]] with Lexers
 with CharRegExps {
   type Token = spp.structure.Tokens.Token
   type Position = SourcePosition
@@ -24,12 +24,10 @@ with CharRegExps {
     * @param sources list of file
     * @return resulting tokens
     */
-  def run(ctx: Context)(sources: List[File]): Iterator[Token] = {
-    val tokens = sources.foldLeft(Iterator[Token]())((acc, file) => {
-      acc ++ lexer.spawn(
-        Source.fromFile(file, SourcePositioner(file))
-      )
-    }).toList
+  def run(ctx: Context)(sources: File): Iterator[Token] = {
+    val tokens = lexer.spawn(
+      Source.fromFile(sources, SourcePositioner(sources))
+    ).toList
     
     // make sure the file does not start with an indent
     tokens match {
