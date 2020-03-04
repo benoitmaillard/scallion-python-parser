@@ -25,28 +25,28 @@ with CharRegExps {
     * @return resulting tokens
     */
   def run(ctx: Context)(sources: File): Iterator[Token] = {
-    val tokens = lexer.spawn(
+    var tokens = lexer.spawn(
       Source.fromFile(sources, SourcePositioner(sources))
-    ).toList
-    
-    // make sure the file does not start with an indent
-    tokens match {
-      case (t:Space) :: tl =>
-        ctx.reporter.fatal("Unexpected indent at " + t.position)
-      case _ =>
+    ).toList.dropRight(1)
+
+    // check first indent
+    tokens = tokens match {
+      case t@Space() :: tail => ctx.reporter.fatal("Unexpected indent")
+      case t@PhysicalIndent(l) :: tail =>
+        if (l > 0) ctx.reporter.fatal("Unexpected indent")
+        else tail
+      case _ => tokens
     }
+
+    // remove spaces at the end
+    tokens = clean(tokens)
     
-    val filtered = tokens.filter {
-      case Space() | Comment() => false
-      case _ => true
-    }
-    
-    val lineJoined = fixImplicitLineJoin(filtered)
+    val lineJoined = fixImplicitLineJoin(tokens)
     val withIndent = fixIndent(lineJoined, ctx)
     withIndent.map {
       case t@ErrorToken(msg) => ctx.reporter.fatal("Invalid token at " + t.position )
       case t => t
-    }.iterator
+    }.iterator ++ Iterator(EOF())
   }
 
   // Transforms counts of indentation spaces into INDENT, DEDENT and NEWLINE
@@ -56,24 +56,30 @@ with CharRegExps {
         if (lvl > stack.head)
           (lvl :: stack, Indent() :: Newline().setPos(token.position) :: acc)
         else {
-          val updatedStack = stack.dropWhile(lvl < _)
-          val nDedent = stack.length - updatedStack.length
-        if (updatedStack.head == lvl) {
-          (updatedStack, (List.fill(nDedent)(Dedent()) ::: List(Newline().setPos(token.position))) ::: acc)
+            val updatedStack = stack.dropWhile(lvl < _)
+            val nDedent = stack.length - updatedStack.length
+          if (updatedStack.head == lvl) {
+            (updatedStack, (List.fill(nDedent)(Dedent()) ::: List(Newline().setPos(token.position))) ::: acc)
+          }
+          else ctx.reporter.fatal("Incorrect indentation at" + token.position)
         }
-        else ctx.reporter.fatal("Incorrect indentation at" + token.position)
-      }
       case ((stack, acc), token) => (stack, token :: acc)
     }
+    resTokens.reverse
+  }
 
-    // we make sure each indent token has a matching dedent token
-    val lastLineLvl = stack.length - 1
-    if (lastLineLvl > 0) {
-      val eof = resTokens.head
-      (eof :: List.fill(lastLineLvl)(Dedent()) ::: resTokens.tail).reverse
-    } else {
-      resTokens.reverse
+  /* Removes unused tokens
+  */
+  def clean(tokens: List[Token]): List[Token] = {
+    val filtered = tokens.filter {
+      case Space() | Comment() => false
+      case _ => true
     }
+
+    filtered.reverse.dropWhile {
+      case PhysicalIndent(_) => true
+      case _ => false
+    }.reverse :+ PhysicalIndent(0)
   }
   
   // Removing line breaks that are placed inside parenthesis, curly braces or square brackets
@@ -151,10 +157,24 @@ with CharRegExps {
   // indentation
   val physicalNewLine = oneOfWords("\n", "\r\n", "\r")
   val noLineBreak = elem(c => c != '\n' && c != '\r')
+  val spaceChar = elem(_.isSpaceChar)
+
+  val comment = elem('#') ~ many(noLineBreak)
   
   val lexer: Lexer = Lexer(
+    // counting indentation spaces, used to generate INDENT/DEDENT/NEWLINE later
+    /* there can be any number of blank lines (only spaces or comments) before an
+    actual new logical line */
+    many(spaceChar) ~ opt(comment) ~
+    many(physicalNewLine ~ many(spaceChar) ~ opt(comment)) ~
+      physicalNewLine ~ many(whiteSpace) |>
+      {(s, range) =>
+        val nIndent = s.reverse.indexWhere(c => c == '\n' || c == '\r')
+        PhysicalIndent(nIndent).setPos(range._1)
+      },
+
     // spaces that are not placed after a linebreak have no particular meaning
-    elem(_.isWhitespace) |> {(s, range) => Space().setPos(range._1)},
+    many(elem(_.isSpaceChar)) |> {(s, range) => Space().setPos(range._1)},
 
     // explicit line joining with '\'
     elem('\\') ~ many(noLineBreak) ~ physicalNewLine |>
@@ -169,15 +189,7 @@ with CharRegExps {
     // comment
     elem('#') ~ many(elem(_ != '\n')) |> {(s, range) => Comment().setPos(range._1)},
 
-    // counting indentation spaces, used to generate INDENT/DEDENT/NEWLINE later
-    /* there can be any number of blank lines (only spaces or comments) before an
-    actual new logical line */
-    many(physicalNewLine ~ many(whiteSpace) ~ opt(elem('#') ~ many(noLineBreak))) ~
-      physicalNewLine ~ many(whiteSpace) |>
-      {(s, range) =>
-        val nIndent = s.reverse.indexWhere(c => c == '\n' || c == '\r')
-        PhysicalIndent(nIndent).setPos(range._1)
-      },
+    
     
     // keywords
     oneOfWords(
