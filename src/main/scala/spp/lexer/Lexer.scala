@@ -170,7 +170,10 @@ with CharRegExps {
     elem('#') ~ many(elem(_ != '\n')) |> {(s, range) => Comment().setPos(range._1)},
 
     // counting indentation spaces, used to generate INDENT/DEDENT/NEWLINE later
-    many(physicalNewLine ~ many(whiteSpace)) ~ physicalNewLine ~ many(whiteSpace) |>
+    /* there can be any number of blank lines (only spaces or comments) before an
+    actual new logical line */
+    many(physicalNewLine ~ many(whiteSpace) ~ opt(elem('#') ~ many(noLineBreak))) ~
+      physicalNewLine ~ many(whiteSpace) |>
       {(s, range) =>
         val nIndent = s.reverse.indexWhere(c => c == '\n' || c == '\r')
         PhysicalIndent(nIndent).setPos(range._1)
