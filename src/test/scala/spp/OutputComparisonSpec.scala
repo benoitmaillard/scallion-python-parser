@@ -18,7 +18,7 @@ abstract class OutputComparisonSpec extends FlatSpec {
   def outputMatch(testName: String): Assertion = {
     val expected = Source.fromFile(
         new File(rootOutput + testName + outputExtension)
-    ).getLines().mkString
+    ).getLines().mkString//.filter(!_.isWhitespace)
 
     val inputFileName = rootInput + testName + inputExtension
 
@@ -26,6 +26,7 @@ abstract class OutputComparisonSpec extends FlatSpec {
         new utils.Reporter, List(inputFileName)
     )
     val actual: String = pipeline.run(context)(new File(inputFileName))
+      //.filter(!_.isWhitespace)
 
     assertResult(expected)(actual)
   }

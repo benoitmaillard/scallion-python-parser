@@ -17,6 +17,10 @@ class LexerTests extends OutputComparisonSpec {
     "lexer" should "tokenize basic input file correctly" in {
         outputMatch("basic-test")
     }
+
+    it should "tokenize file with blank lines correctly" in {
+        outputMatch("empty-lines-test")
+    }
     
 }
 
