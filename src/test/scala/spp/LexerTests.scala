@@ -21,6 +21,10 @@ class LexerTests extends OutputComparisonSpec {
     it should "tokenize file with blank lines correctly" in {
         outputMatch("empty-lines-test")
     }
+
+    it should "produce only EOF token for empty file" in {
+        outputMatch("empty")
+    }
     
 }
 
