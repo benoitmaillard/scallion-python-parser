@@ -76,10 +76,13 @@ with CharRegExps {
       case _ => true
     }
 
-    filtered.reverse.dropWhile {
+    val res = filtered.reverse.dropWhile {
       case PhysicalIndent(_) => true
       case _ => false
-    }.reverse :+ PhysicalIndent(0)
+    }.reverse
+
+    if (!res.isEmpty) res :+ PhysicalIndent(0)
+    else res
   }
   
   // Removing line breaks that are placed inside parenthesis, curly braces or square brackets
