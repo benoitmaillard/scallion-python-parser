@@ -2,6 +2,7 @@ package spp.lexer
 
 import spp.utils._
 import spp.structure.Tokens._
+import spp.lexer.TokensCleaner._
 
 import java.io.File
 import scallion.lexical._
@@ -25,79 +26,13 @@ with CharRegExps {
     * @return resulting tokens
     */
   def run(ctx: Context)(sources: File): Iterator[Token] = {
-    var tokens = lexer.spawn(
+    val tokens = lexer.spawn(
       Source.fromFile(sources, SourcePositioner(sources))
-    ).toList.dropRight(1)
+    ).toList
 
-    // check first indent
-    tokens = tokens match {
-      case t@Space() :: tail => ctx.reporter.fatal("Unexpected indent")
-      case t@PhysicalIndent(l) :: tail =>
-        if (l > 0) ctx.reporter.fatal("Unexpected indent")
-        else tail
-      case _ => tokens
-    }
-
-    // remove spaces at the end
-    tokens = clean(tokens)
-    
-    val lineJoined = fixImplicitLineJoin(tokens)
-    val withIndent = fixIndent(lineJoined, ctx)
-    withIndent.map {
-      case t@ErrorToken(msg) => ctx.reporter.fatal("Invalid token at " + t.position )
-      case t => t
-    }.iterator ++ Iterator(EOF())
+    val result = TokensCleaner(tokens)(ctx).process()
+    result.iterator
   }
-
-  // Transforms counts of indentation spaces into INDENT, DEDENT and NEWLINE
-  def fixIndent(tokens: List[Token], ctx: Context): List[Token] = {
-    val (stack, resTokens) = tokens.foldLeft(List(0), List[Token]()) {
-      case ((stack, acc), token@PhysicalIndent(lvl)) =>
-        if (lvl > stack.head)
-          (lvl :: stack, Indent() :: Newline().setPos(token.position) :: acc)
-        else {
-            val updatedStack = stack.dropWhile(lvl < _)
-            val nDedent = stack.length - updatedStack.length
-          if (updatedStack.head == lvl) {
-            (updatedStack, (List.fill(nDedent)(Dedent()) ::: List(Newline().setPos(token.position))) ::: acc)
-          }
-          else ctx.reporter.fatal("Incorrect indentation at" + token.position)
-        }
-      case ((stack, acc), token) => (stack, token :: acc)
-    }
-    resTokens.reverse
-  }
-
-  /* Removes unused tokens
-  */
-  def clean(tokens: List[Token]): List[Token] = {
-    val filtered = tokens.filter {
-      case Space() | Comment() => false
-      case _ => true
-    }
-
-    val res = filtered.reverse.dropWhile {
-      case PhysicalIndent(_) => true
-      case _ => false
-    }.reverse
-
-    if (!res.isEmpty) res :+ PhysicalIndent(0)
-    else res
-  }
-  
-  // Removing line breaks that are placed inside parenthesis, curly braces or square brackets
-  def fixImplicitLineJoin(tokens: List[Token]): List[Token] = {
-    tokens.foldLeft(0, List[Token]()) {
-      case ((depth, acc), t@Delimiter(del)) =>
-        if ("({[".contains(del)) (depth + 1, t :: acc)
-        else if (")}]".contains(del)) (depth - 1, t :: acc)
-        else (depth, t :: acc)
-      case ((depth, acc), t@PhysicalIndent(_)) =>
-        if (depth > 0) (depth, acc)
-        else (depth, t :: acc)
-      case ((depth, acc), t) => (depth, t :: acc)
-    }
-  }._2.reverse
   
   def removeDelimiters(str: String, delimiter: Char) = {
     val nDelimiters = str.indexWhere(_ != delimiter)
