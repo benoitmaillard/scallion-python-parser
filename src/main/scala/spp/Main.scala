@@ -7,7 +7,7 @@ import java.io.File
 object Main {
   def main(args: Array[String]): Unit = {
     val context = Context(new Reporter, args.toList)
-    val pipeline = Lexer andThen PrintTokens
+    val pipeline = Lexer andThen Parser andThen TreePrinter
     
     try {
       if (context.files.isEmpty) {
