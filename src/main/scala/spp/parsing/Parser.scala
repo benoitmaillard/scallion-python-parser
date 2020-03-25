@@ -33,9 +33,17 @@ with Syntaxes with ll1.Parsing with Operators with ll1.Debug  {
   lazy val stmt: Syntax[Seq[Statement]] = simpleStmt /*| compoundStmt.map(st => Seq(st))*/
 
   // One or more smallStmt on a single line
-  lazy val simpleStmt: Syntax[Seq[Statement]] =
-    (smallStmt ~ many(";" ~ smallStmt) /*~ opt(";")*/ ~ NewlineClass) map {
-      case firstStmt ~ seqStmts ~ _ /*~ _*/ => firstStmt +: seqStmts.map{case _ ~ stmt => stmt}
+  lazy val simpleStmt: Syntax[Seq[Statement]] = 
+    (simpleStmtWithoutNewLine ~ NewlineClass) map {
+      case s ~ _ => s
+    }
+  lazy val simpleStmtWithoutNewLine: Syntax[Seq[Statement]] = recursive(
+    (smallStmt ~ opt(simpleStmtFollow)) map {
+      case s1 ~ ssOpt => s1 +: ssOpt.getOrElse(Seq.empty)
+    })
+  lazy val simpleStmtFollow: Syntax[Seq[Statement]] =
+    (";" ~ opt(simpleStmtWithoutNewLine)) map {
+      case _ ~ sOpt => sOpt.getOrElse(Seq.empty)
     }
 
   /*lazy val compoundStmt: Syntax[Statement] = ifStmt | whileStmt | forStmt | tryStmt
@@ -84,12 +92,16 @@ with Syntaxes with ll1.Parsing with Operators with ll1.Debug  {
   )
 
   lazy val orTest: Syntax[Expr] = name
+  
+  lazy val testListStarExpr: Syntax[Seq[Expr]] = recursive(
+    (test /* | starExpr*/) ~ opt(testListStarExprFollow) map {
+      case t ~ tListOpt => t +: tListOpt.getOrElse(Seq.empty)
+    })
 
-  lazy val testListStarExpr: Syntax[Seq[Expr]] =
-    ((test /* | starExpr*/) ~ many("," ~ (test /* | starExpr*/)) /*~ opt(",")*/) map {
-      case exp1 ~ seq /*~ _*/ => exp1 +: seq.map{case _ ~ e => e}
+  lazy val testListStarExprFollow: Syntax[Seq[Expr]] =
+    "," ~ opt(testListStarExpr) map {
+      case _ ~ tListOpt => tListOpt.getOrElse(Seq.empty)
     }
-
   /*
   lazy val expr: Syntax[Expr] = operators(factor)(
     binOp("*") | binOp("@") is LeftAssociative
@@ -105,7 +117,9 @@ with Syntaxes with ll1.Parsing with Operators with ll1.Debug  {
   def run(ctx: Context)(v: Iterator[Token]): Module = {
     if (!module.isLL1) {
       debug(module)
-      ctx.reporter.fatal("Not LL1!!")
+      ctx.reporter.fatal("Syntax is not LL1!")
+    } else {
+      println("Syntax is LL1!")
     }
     val parser = LL1(module)
     
