@@ -18,8 +18,25 @@ with Syntaxes with ll1.Parsing with Operators with ll1.Debug  {
   type Kind = TokenClass
 
   implicit def classToSyntax(k: Kind): Syntax[Token] = elem(k)
-  implicit def stringToDelimiter(del: String): Syntax[Token] = elem(DelimiterClass(del))
-  def kw(value: String): Syntax[Token] = elem(KeywordClass(value))
+
+  def kw(value: String): Syntax[String] = accept(KeywordClass(value)) {
+    case _ => value
+  }
+
+  def del(del: String): Syntax[Token] = elem(DelimiterClass(del))
+
+  def compKw(value1: String, value2: String): Syntax[String] = 
+    kw(value1) ~ kw(value2) map {
+      case v1 ~ v2 => v1 ++ " " ++ v2
+    }
+
+  def binaryOp(value: String): Syntax[String] = accept(OperatorClass(value)) {
+    case _ => value
+  }
+
+  def op(value: String): Syntax[Token] = elem(OperatorClass(value))
+
+  def oneOfOp(values: String*) = values.map(binaryOp(_)).reduce(_ | _)
 
   lazy val name: Syntax[Expr] = accept(NameClass) {
     case Identifier(name) => Name(None, name)
@@ -42,7 +59,7 @@ with Syntaxes with ll1.Parsing with Operators with ll1.Debug  {
       case s1 ~ ssOpt => s1 +: ssOpt.getOrElse(Seq.empty)
     })
   lazy val simpleStmtFollow: Syntax[Seq[Statement]] =
-    (";" ~ opt(simpleStmtWithoutNewLine)) map {
+    (del(";") ~ opt(simpleStmtWithoutNewLine)) map {
       case _ ~ sOpt => sOpt.getOrElse(Seq.empty)
     }
 
@@ -61,8 +78,7 @@ with Syntaxes with ll1.Parsing with Operators with ll1.Debug  {
 
   lazy val smallStmt: Syntax[Statement] = exprStmt /*| delStmt | passStmt | flowStmt*/
 
-  // TODO complete
-  lazy val exprStmt: Syntax[Statement] = (testListStarExpr ~ many1("=" ~ testListStarExpr)) map {
+  lazy val exprStmt: Syntax[Statement] = (testListStarExpr ~ many1(del("=") ~ testListStarExpr)) map {
     case seqExpr ~ seqSeqExpr => {
       val removedEquals = seqSeqExpr.map{ case _ ~ testList => testList}
       Assign(seqExpr +: removedEquals.init, removedEquals.last)
@@ -83,15 +99,60 @@ with Syntaxes with ll1.Parsing with Operators with ll1.Debug  {
       case _ ~ _ ~ seqSeqStmts ~ _ => seqSeqStmts.reduce(_ ++ _)
     }
 
-  lazy val namedExprTest: Syntax[Expr] = ???
+  // lazy val namedExprTest: Syntax[Expr] = ???
   lazy val test: Syntax[Expr] = recursive(
-    (orTest ~ opt(kw("if") ~ orTest ~ kw("else") ~ test)).map {
-      case vTrue ~ Some(_ ~ condition ~ _ ~ vFalse) => TernaryExpr(condition, vTrue, vFalse)
+    orTest ~ opt(kw("if") ~ orTest ~ kw("else") ~ test) /* lambdef*/ map {
+      case vTrue ~ Some(_ ~ condition ~ _ ~ vFalse) => IfExpr(condition, vTrue, vFalse)
       case v ~ None => v
     }
   )
 
-  lazy val orTest: Syntax[Expr] = name
+  lazy val orTest: Syntax[Expr] = operators(notTest)(
+    kw("or") is LeftAssociative,
+    kw("and") is LeftAssociative
+  ) {
+    case (l, op, r) => BoolOp(op, l, r)
+  }
+
+  lazy val notTest: Syntax[Expr] = recursive(
+    kw("not") ~ notTest map {
+      case _ ~ e => Not(e)
+    }
+  ).up[Expr] | comparison
+
+  // comparisons can be chained : 1 < 2 < x == 3
+  lazy val comparison: Syntax[Expr] = expr ~ many(compOp ~ expr) map {
+    case e1 ~ Nil => e1
+    case e1 ~ l => Compare(e1, l.map { case op ~ e => op }, l.map { case op ~ e => e } )
+  }
+
+  lazy val compOp =
+    oneOfOp("<", ">", "==", ">=", "<=", "<>", "!=") |
+    kw("in") | compKw("not", "in") | isOperator
+
+  // Special case for LL1
+  lazy val isOperator = kw("is") ~ opt(kw("not")) map {
+    case _ ~ Some(_) => "is not"
+    case _ ~ None => "is"
+  }
+
+  lazy val starExpr = op("*") ~ expr map { case _ ~ e => e }
+
+  lazy val expr: Syntax[Expr] = operators(atomExpr)(
+    binaryOp("|") is LeftAssociative,
+    binaryOp("^") is LeftAssociative,
+    binaryOp("&") is LeftAssociative,
+    oneOfOp("<<", ">>") is LeftAssociative,
+    oneOfOp("*", "@", "/", "%", "//") is LeftAssociative,
+    oneOfOp("+", "-", "~") is LeftAssociative,
+    binaryOp("**") is RightAssociative
+  ) {
+    case (l, op, r) => BinOp(op, l, r)
+  }
+
+  lazy val atomExpr: Syntax[Expr] = atom
+  lazy val atom: Syntax[Expr] = name
+  // lazy val trailer: Syntax[Expr] = ???
   
   lazy val testListStarExpr: Syntax[Seq[Expr]] = recursive(
     (test /* | starExpr*/) ~ opt(testListStarExprFollow) map {
@@ -99,20 +160,9 @@ with Syntaxes with ll1.Parsing with Operators with ll1.Debug  {
     })
 
   lazy val testListStarExprFollow: Syntax[Seq[Expr]] =
-    "," ~ opt(testListStarExpr) map {
+    del(",") ~ opt(testListStarExpr) map {
       case _ ~ tListOpt => tListOpt.getOrElse(Seq.empty)
     }
-  /*
-  lazy val expr: Syntax[Expr] = operators(factor)(
-    binOp("*") | binOp("@") is LeftAssociative
-  )( {
-    case (l, Operator(op), r) => BinaryExpr(op, l, r)
-  }
-
-  )*/
-
-  // lazy val factor: Syntax[Expr] = ???
-
   
   def run(ctx: Context)(v: Iterator[Token]): Module = {
     if (!module.isLL1) {
