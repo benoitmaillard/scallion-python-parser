@@ -256,10 +256,9 @@ with Syntaxes with ll1.Parsing with Operators with ll1.Debug  {
       case LL1.UnexpectedToken(token, rest) => {
         println(token)
         println(token.position)
-        println(rest)
-        ctx.reporter.fatal("test")
+        ctx.reporter.fatal("Invalid token")
       }
-      case LL1.UnexpectedEnd(rest) => ???
+      case LL1.UnexpectedEnd(rest) => ctx.reporter.fatal("Invalid end")
     }
   }
   
