@@ -49,10 +49,17 @@ object AbstractSyntaxTree {
   case class Yield() extends Expr
   case class YieldFrom() extends Expr
   case class Compare(left: Expr, ops: Seq[String], comparators: Seq[Expr]) extends Expr
-  case class Call() extends Expr
+  // NOTE: documentation has two separate lists for args, keyword args
+  case class Call(func: Expr, args: Seq[CallArg]) extends Expr
   case class FormattedValue() extends Expr
   case class JoinedStr() extends Expr
-  case class Constant() extends Expr
+
+  trait Constant extends Expr
+  case class IntConstant(value: BigInt) extends Constant
+  case class FloatConstant(value: Float) extends Constant
+  case class ImaginaryConstant(value: Float) extends Constant
+  case class StringConstant(prefix: Option[String], value: String) extends Constant
+
   case class Attribute(value: Expr, attr: String) extends Expr
   case class Subscript(value: Expr, slice: Slice) extends Expr
   case class Starred(value: Expr) extends Expr
@@ -62,8 +69,15 @@ object AbstractSyntaxTree {
 
   case class Arg(arg: String, annotation: Option[Expr], typeComment: Option[String]) extends Tree
 
+  trait CallArg extends Tree
+  case class PosArg(value: Expr) extends CallArg
+  // arg is None when an argument of the type **kwargs is passed
+  // arg is an expression but we have to check that it is actually name later
+  case class KeywordArg(arg: Option[Expr], value: Expr) extends CallArg
+
   trait Slice extends Tree
   case class DefaultSlice(lower: Option[Expr], upper: Option[Expr], step: Option[Expr]) extends Slice
-  case class ExtSlice() extends Slice
+  // TODO should make the difference between slice and compositeslice
+  case class ExtSlice(dims: Seq[Slice]) extends Slice
   case class Index(value: Expr) extends Slice
 }

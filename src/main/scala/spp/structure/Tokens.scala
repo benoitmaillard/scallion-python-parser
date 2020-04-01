@@ -47,7 +47,8 @@ object TokenClasses {
   final case object DedentClass extends TokenClass("<dedent>")
   final case class KeywordClass(value: String) extends TokenClass(value)
   final case object NameClass extends TokenClass("<name>")
-  final case object LiteralClass extends TokenClass("<literal>")
+  final case object NumberClass extends TokenClass("<number>")
+  final case object StringClass extends TokenClass("<string>")
 
   final case class OperatorClass(value: String) extends TokenClass(value)
   final case class DelimiterClass(value: String) extends TokenClass(value)

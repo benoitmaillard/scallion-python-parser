@@ -31,6 +31,28 @@ object TreePrinter extends Pipeline[Module, Unit] {
     case Compare(left, ops, comparators) =>
       val right = (ops zip comparators).map{ case (op, comp) => op + " " + printTree(comp) }.reduce((x, y) => x + " " + y)
       f"(${printTree(left)} ${right} )"
+    case IntConstant(value) => value.toString()
+    case FloatConstant(value) => value.toString()
+    case ImaginaryConstant(value) => f"${value}j"
+    case Call(func, args) => args match {
+      case Nil => f"${printTree(func)}()"
+      case _ => f"${printTree(func)}(${args.map(printTree(_)).reduce(_ + ", " + _)})"
+    }
+    case Subscript(value, slice) => f"${printTree(value)}[${printTree(slice)}]"
+    case Attribute(value, attr) => f"${printTree(value)}.$attr"
+    case PosArg(value) => f"${printTree(value)}"
+    case KeywordArg(arg, value) => arg match {
+      case Some(name) => f"${printTree(name)}=${printTree(value)}"
+      case None => f"**${printTree(value)}"
+    }
+
+    case ExtSlice(dims) => dims.map(printTree(_)).reduce(_ + ", " + _)
+    case Index(value) => printTree(value)
+    case DefaultSlice(lower, upper, step) =>
+      f"${lower.map(printTree(_)).getOrElse("")}:${upper.map(printTree(_)).getOrElse("")}:${step.map(printTree(_)).getOrElse("")}"
+    
+    
+    case NamedExpr(target, value) => f"${printTree(target)}:=${printTree(value)}"
     case _ => "???"
   }
 }

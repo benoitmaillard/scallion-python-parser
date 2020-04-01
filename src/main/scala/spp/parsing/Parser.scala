@@ -17,31 +17,36 @@ with Syntaxes with ll1.Parsing with Operators with ll1.Debug  {
   type Token = Tokens.Token
   type Kind = TokenClass
 
+  // TODO necessary ?
+  trait AtomTrailer
+  case class CallArgsTrailer(args: Seq[CallArg]) extends AtomTrailer
+  case class SubscriptTrailer(slices: Slice) extends AtomTrailer
+  case class NameTrailer(name: String) extends AtomTrailer
+
   implicit def classToSyntax(k: Kind): Syntax[Token] = elem(k)
 
-  def kw(value: String): Syntax[String] = accept(KeywordClass(value)) {
-    case _ => value
-  }
+  def kw(value: String): Syntax[String] = accept(KeywordClass(value)){ case _ => value }
 
-  def del(del: String): Syntax[Token] = elem(DelimiterClass(del))
+  def del(value: String): Syntax[String] = accept(DelimiterClass(value)){ case _ => value }
 
   def compKw(value1: String, value2: String): Syntax[String] = 
     kw(value1) ~ kw(value2) map {
       case v1 ~ v2 => v1 ++ " " ++ v2
     }
 
-  def binaryOp(value: String): Syntax[String] = accept(OperatorClass(value)) {
-    case _ => value
+  def op(value: String): Syntax[String] = accept(OperatorClass(value)){ case _ => value }
+
+  def oneOfOp(values: String*) = values.map(op(_)).reduce(_ | _)
+
+  lazy val nameString: Syntax[String] = accept(NameClass){ case Identifier(name) => name }
+
+  lazy val name: Syntax[Expr] = nameString map (n => Name(n))
+
+  lazy val number: Syntax[Expr] = accept(NumberClass) {
+    case IntLiteral(v) => IntConstant(v)
+    case FloatLiteral(v) => FloatConstant(v)
+    case ImaginaryLiteral(v) => ImaginaryConstant(v)
   }
-
-  def op(value: String): Syntax[Token] = elem(OperatorClass(value))
-
-  def oneOfOp(values: String*) = values.map(binaryOp(_)).reduce(_ | _)
-
-  lazy val name: Syntax[Expr] = accept(NameClass) {
-    case Identifier(name) => Name(name)
-  }
-  
 
   lazy val module = (many(stmt) ~ EOFClass) map { // TODO doc says there could be NEWLINE only ??
     case seq ~ eof => Module(seq.reduce(_ ++ _))
@@ -139,21 +144,94 @@ with Syntaxes with ll1.Parsing with Operators with ll1.Debug  {
   lazy val starExpr = op("*") ~ expr map { case _ ~ e => e }
 
   lazy val expr: Syntax[Expr] = operators(atomExpr)(
-    binaryOp("|") is LeftAssociative,
-    binaryOp("^") is LeftAssociative,
-    binaryOp("&") is LeftAssociative,
+    op("|") is LeftAssociative,
+    op("^") is LeftAssociative,
+    op("&") is LeftAssociative,
     oneOfOp("<<", ">>") is LeftAssociative,
     oneOfOp("*", "@", "/", "%", "//") is LeftAssociative,
     oneOfOp("+", "-", "~") is LeftAssociative,
-    binaryOp("**") is RightAssociative
+    op("**") is RightAssociative
   ) {
     case (l, op, r) => BinOp(op, l, r)
   }
 
-  lazy val atomExpr: Syntax[Expr] = atom
-  lazy val atom: Syntax[Expr] = name
-  // lazy val trailer: Syntax[Expr] = ???
+  lazy val atomExpr: Syntax[Expr] =
+    /* await */ atom ~ (
+      many(trailer)
+    ) map {
+    case e ~ Nil => e
+    case e ~ trailers => trailers.foldLeft(e)((previousExp, trailer) => trailer match {
+      case CallArgsTrailer(args) => Call(previousExp, args) // previousExp(args)
+      case SubscriptTrailer(slice) => Subscript(previousExp, slice)
+      case NameTrailer(name) => Attribute(previousExp, name) 
+    });
+  }
+
+  // TODO comprehensions, ellipsis and strings
+  lazy val atom: Syntax[Expr] = name | number | atomPredef
   
+  lazy val atomPredef: Syntax[Expr] = (kw("None") | kw("True") | kw("False")) map {
+    case v => Name(v)
+  }
+  
+  lazy val trailer: Syntax[AtomTrailer] = trailerCall | trailerSubscript | trailerName
+  lazy val trailerCall: Syntax[AtomTrailer] =
+    del("(") ~ opt(argList) ~ del(")") map { case _ ~ o ~ _ => CallArgsTrailer(o.getOrElse(Nil))}
+
+  lazy val trailerSubscript: Syntax[AtomTrailer] =
+    del("[") ~ subscriptList ~ del("]") map {
+      case _ ~ (sl +: Nil) ~ _ => SubscriptTrailer(sl)
+      case _ ~ (slices) ~ _ => SubscriptTrailer(ExtSlice(slices))
+    }
+  lazy val trailerName: Syntax[AtomTrailer] = del(".") ~ nameString map { case _ ~ n => NameTrailer(n) }
+
+  lazy val argList: Syntax[Seq[CallArg]] = argument ~ many(del(",") ~ argument) map { // ~ opt(",")
+    case a1 ~ seq => a1 +: seq.map { case _ ~ a => a }
+  } 
+
+  lazy val subscriptList: Syntax[Seq[Slice]] = subscript ~ many(del(",") ~ subscript) map { // ~ opt(",")
+    case s1 ~ seq => s1 +: seq.map { case _ ~ s => s }
+  }
+
+  lazy val argument: Syntax[CallArg] = argumentStartingWithTest | argumentStar | argumentDoubleStar
+  lazy val argumentStartingWithTest: Syntax[CallArg] =
+    test ~ opt(op(":=") ~ test | del("=") ~ test) map {
+      case e1 ~ o => o match {
+        case None => PosArg(e1)
+        case Some(":=" ~ e2) => PosArg(NamedExpr(e1, e2))
+        case Some("=" ~ e2) => KeywordArg(Some(e1), e2)
+      }
+    }
+  lazy val argumentStar: Syntax[CallArg] = op("*") ~ test map {
+    case _ ~ e => PosArg(e) // TODO is this correct ?
+  }
+  lazy val argumentDoubleStar: Syntax[CallArg] = op("**") ~ test map {
+    case _ ~ e => KeywordArg(None, e)
+  }
+
+  lazy val subscript: Syntax[Slice] =  subscriptStartingWithTest | subscriptStartingWithColon
+
+  // [ x:x:x ]
+  lazy val subscriptStartingWithTest: Syntax[Slice] = (test ~ opt(subscriptFollows)) map {
+    case t ~ None => Index(t)
+    case t ~ Some((o1, o2)) => DefaultSlice(Some(t), o1, o2)
+  }
+
+  // [ :x:x ]
+  lazy val subscriptStartingWithColon: Syntax[Slice] = subscriptFollows map {
+    case (o1, o2) => DefaultSlice(None, o1, o2)
+  }
+
+  // [x :x:x ]
+  lazy val subscriptFollows: Syntax[(Option[Expr], Option[Expr])] =
+    del(":") ~ opt(test) ~ opt(sliceOp) map {
+      case _ ~ o1 ~ o2 => (o1, o2.getOrElse(None))
+    }
+
+  // [x:x :x ]
+  lazy val sliceOp: Syntax[Option[Expr]] = del(":") ~ opt(test) map { case _ ~ o => o }
+
+
   lazy val testListStarExpr: Syntax[Seq[Expr]] = recursive(
     (test /* | starExpr*/) ~ opt(testListStarExprFollow) map {
       case t ~ tListOpt => t +: tListOpt.getOrElse(Seq.empty)
@@ -177,6 +255,7 @@ with Syntaxes with ll1.Parsing with Operators with ll1.Debug  {
       case LL1.Parsed(value, rest) => value
       case LL1.UnexpectedToken(token, rest) => {
         println(token)
+        println(token.position)
         println(rest)
         ctx.reporter.fatal("test")
       }
@@ -185,8 +264,8 @@ with Syntaxes with ll1.Parsing with Operators with ll1.Debug  {
   }
   
   def getKind(token: Token): Kind = token match {
-    case _:StringLiteral | _:BytesLiteral | _:IntLiteral |
-      _:FloatLiteral | _:ImaginaryLiteral => LiteralClass
+    case _:BytesLiteral | _:IntLiteral | _:FloatLiteral | _:ImaginaryLiteral => NumberClass
+    case _:StringLiteral => StringClass
     case Keyword(name) => KeywordClass(name)
     case Operator(op) => OperatorClass(op)
     case Identifier(name) => NameClass
