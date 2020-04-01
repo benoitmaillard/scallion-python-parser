@@ -19,18 +19,15 @@ object TreePrinter extends Pipeline[Module, Unit] {
       concat.map(exprSeq => exprSeq.map(printTree(_)).reduce(_ ++ ", " ++ _))
         .reduce(_ ++ " = " ++ _)
     }
-    case Name(namespace, name) => namespace match {
-      case Some(s) => s ++ "." ++ name
-      case None => name
-    }
+    case Name(name) => name
     case IfExpr(condition, ifValue, elseValue) =>
       f"(${printTree(ifValue)} if ${printTree(condition)} else ${printTree(elseValue)})"
     case BinOp(op, left, right) =>
       f"(${printTree(left)} $op ${printTree(right)})"
     case BoolOp(op, left, right) => 
       f"(${printTree(left)} $op ${printTree(right)})"
-    case Not(e) =>
-      f"(not ${printTree(e)})"
+    case UnaryOp(op, e) =>
+      f"($op ${printTree(e)})"
     case Compare(left, ops, comparators) =>
       val right = (ops zip comparators).map{ case (op, comp) => op + " " + printTree(comp) }.reduce((x, y) => x + " " + y)
       f"(${printTree(left)} ${right} )"

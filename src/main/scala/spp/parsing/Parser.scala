@@ -39,7 +39,7 @@ with Syntaxes with ll1.Parsing with Operators with ll1.Debug  {
   def oneOfOp(values: String*) = values.map(binaryOp(_)).reduce(_ | _)
 
   lazy val name: Syntax[Expr] = accept(NameClass) {
-    case Identifier(name) => Name(None, name)
+    case Identifier(name) => Name(name)
   }
   
 
@@ -116,7 +116,7 @@ with Syntaxes with ll1.Parsing with Operators with ll1.Debug  {
 
   lazy val notTest: Syntax[Expr] = recursive(
     kw("not") ~ notTest map {
-      case _ ~ e => Not(e)
+      case _ ~ e => UnaryOp("not", e)
     }
   ).up[Expr] | comparison
 
