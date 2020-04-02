@@ -40,14 +40,13 @@ object AbstractSyntaxTree {
   case class IfExpr(condition: Expr, ifValue: Expr, elseValue: Expr) extends Expr
   case class Dict(keys: Seq[Expr], values: Seq[Expr]) extends Expr
   case class Set(elts: Seq[Expr]) extends Expr
-  case class ListComp() extends Expr
-  case class SeqComp() extends Expr
-  case class Setcomp() extends Expr
-  case class Dictcomp() extends Expr
-  case class GeneratorExpr() extends Expr
-  case class Await() extends Expr
-  case class Yield() extends Expr
-  case class YieldFrom() extends Expr
+  case class ListComp(elt: Expr, generators: Seq[Comprehension]) extends Expr
+  case class SetComp(elt: Expr, generators: Seq[Comprehension]) extends Expr
+  case class Dictcomp(key: Expr, value: Expr, generators: Seq[Comprehension]) extends Expr
+  case class GeneratorExp(elt: Expr, generators: Seq[Comprehension]) extends Expr
+  case class Await(value: Expr) extends Expr
+  case class Yield(value: Option[Expr]) extends Expr
+  case class YieldFrom(value: Expr) extends Expr
   case class Compare(left: Expr, ops: Seq[String], comparators: Seq[Expr]) extends Expr
   // NOTE: documentation has two separate lists for args, keyword args
   case class Call(func: Expr, args: Seq[CallArg]) extends Expr
@@ -64,8 +63,8 @@ object AbstractSyntaxTree {
   case class Subscript(value: Expr, slice: Slice) extends Expr
   case class Starred(value: Expr) extends Expr
   case class Name(name: String) extends Expr
-  case class List(elts: Expr) extends Expr
-  case class Tuple(elts: Expr) extends Expr
+  case class List(elts: Seq[Expr]) extends Expr
+  case class Tuple(elts: Seq[Expr]) extends Expr
 
   case class Arg(arg: String, annotation: Option[Expr], typeComment: Option[String]) extends Tree
 
@@ -74,6 +73,8 @@ object AbstractSyntaxTree {
   // arg is None when an argument of the type **kwargs is passed
   // arg is an expression but we have to check that it is actually name later
   case class KeywordArg(arg: Option[Expr], value: Expr) extends CallArg
+
+  case class Comprehension(target: Expr, iter: Expr, ifs: Seq[Expr] /*isAsync*/)
 
   trait Slice extends Tree
   case class DefaultSlice(lower: Option[Expr], upper: Option[Expr], step: Option[Expr]) extends Slice
