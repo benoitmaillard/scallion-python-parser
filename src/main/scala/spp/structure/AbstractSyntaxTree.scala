@@ -31,6 +31,7 @@ object AbstractSyntaxTree {
   case object Pass extends Statement
   case object Break extends Statement
   case object Continue extends Statement
+  case class ExprStmt(value: Expr) extends Statement
 
   trait Expr extends Tree
   case class BoolOp(op: String, left: Expr, right: Expr) extends Expr

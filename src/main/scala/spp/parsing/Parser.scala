@@ -97,6 +97,7 @@ with Syntaxes with ll1.Parsing with Operators with ll1.Debug  {
   lazy val globalStmt: Syntax[Statement] = ???
   lazy val nonLocalStmt: Syntax[Statement] = ???
   lazy val assertStmt: Syntax[Statement] = ???*/
+  lazy val yieldStmt: Syntax[ExprStmt] = yieldExpr map (yieldExp => ExprStmt(yieldExp))
   
   // What follows ':' (example after an if ...: or for ...:)
   lazy val suiteStmt: Syntax[Seq[Statement]] =
@@ -245,6 +246,13 @@ with Syntaxes with ll1.Parsing with Operators with ll1.Debug  {
     del(",") ~ opt(testListStarExprP1) map {
       case _ ~ tListOpt => tListOpt.getOrElse(Seq.empty)
     }
+
+  lazy val yieldExpr: Syntax[Yield] = kw("yield") ~ opt(yieldArg) map {
+    case _ ~ o => Yield(o)
+  }
+  lazy val yieldArg: Syntax[Expr] = kw("from") ~ (test | testListStarExpr) map {
+    case _ ~ e => e
+  }
   
   def run(ctx: Context)(v: Iterator[Token]): Module = {
     if (!module.isLL1) {
