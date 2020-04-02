@@ -12,7 +12,7 @@ object AbstractSyntaxTree {
   case class ClassDef() extends Statement
   case class Return() extends Statement
   case class Delete() extends Statement
-  case class Assign(left: Seq[Seq[Expr]], value: Seq[Expr]) extends Statement
+  case class Assign(targets: Seq[Expr], value: Expr) extends Statement
   case class AugAssign() extends Statement
   case class AnnAssign() extends Statement
   case class For() extends Statement

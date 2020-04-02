@@ -16,7 +16,7 @@ object TreePrinter extends Pipeline[Module, Unit] {
     case Module(body) => body.map(printTree(_)).reduce(_ ++ "\n" ++ _)
     case Assign(seqSeqExpr, seqExpr) => {
       val concat = seqSeqExpr :+ seqExpr
-      concat.map(exprSeq => exprSeq.map(printTree(_)).reduce(_ ++ ", " ++ _))
+      concat.map(printTree(_))
         .reduce(_ ++ " = " ++ _)
     }
     case Name(name) => name
@@ -51,7 +51,7 @@ object TreePrinter extends Pipeline[Module, Unit] {
     case DefaultSlice(lower, upper, step) =>
       f"${lower.map(printTree(_)).getOrElse("")}:${upper.map(printTree(_)).getOrElse("")}:${step.map(printTree(_)).getOrElse("")}"
     
-    
+    case Tuple(elts) => "(" + elts.map(printTree(_)).reduce(_ ++ ", " ++ _) + ")"
     case NamedExpr(target, value) => f"${printTree(target)}:=${printTree(value)}"
     case _ => "???"
   }

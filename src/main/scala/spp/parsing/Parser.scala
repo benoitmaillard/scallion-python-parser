@@ -231,14 +231,18 @@ with Syntaxes with ll1.Parsing with Operators with ll1.Debug  {
   // [x:x :x ]
   lazy val sliceOp: Syntax[Option[Expr]] = del(":") ~ opt(test) map { case _ ~ o => o }
 
+  lazy val testListStarExpr: Syntax[Expr] = testListStarExprP1 map {
+    case e +: Nil => e
+    case seq => Tuple(seq)
+  }
 
-  lazy val testListStarExpr: Syntax[Seq[Expr]] = recursive(
-    (test /* | starExpr*/) ~ opt(testListStarExprFollow) map {
+  lazy val testListStarExprP1: Syntax[Seq[Expr]] = recursive(
+    (test /* | starExpr*/) ~ opt(testListStarExprP2) map {
       case t ~ tListOpt => t +: tListOpt.getOrElse(Seq.empty)
     })
 
-  lazy val testListStarExprFollow: Syntax[Seq[Expr]] =
-    del(",") ~ opt(testListStarExpr) map {
+  lazy val testListStarExprP2: Syntax[Seq[Expr]] =
+    del(",") ~ opt(testListStarExprP1) map {
       case _ ~ tListOpt => tListOpt.getOrElse(Seq.empty)
     }
   
