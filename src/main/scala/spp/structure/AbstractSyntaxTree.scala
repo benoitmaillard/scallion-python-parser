@@ -75,7 +75,7 @@ object AbstractSyntaxTree {
   // arg is an expression but we have to check that it is actually name later
   case class KeywordArg(arg: Option[Expr], value: Expr) extends CallArg
 
-  case class Comprehension(target: Expr, iter: Expr, ifs: Seq[Expr] /*isAsync*/)
+  case class Comprehension(target: Expr, iter: Expr, ifs: Seq[Expr] /*isAsync*/) extends Tree
 
   trait Slice extends Tree
   case class DefaultSlice(lower: Option[Expr], upper: Option[Expr], step: Option[Expr]) extends Slice

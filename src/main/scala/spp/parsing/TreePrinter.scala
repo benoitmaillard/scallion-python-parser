@@ -12,6 +12,8 @@ object TreePrinter extends Pipeline[Module, Unit] {
     println(printTree(m))
   }
 
+  def printSeq(seq: Seq[Tree]) = seq.map(printTree(_)).reduce(_ ++ " " ++ _)
+
   def printTree(t: Tree): String = t match {
     case Module(body) => body.map(printTree(_)).reduce(_ ++ "\n" ++ _)
     case Assign(seqSeqExpr, seqExpr) => {
@@ -30,7 +32,7 @@ object TreePrinter extends Pipeline[Module, Unit] {
       f"($op ${printTree(e)})"
     case Compare(left, ops, comparators) =>
       val right = (ops zip comparators).map{ case (op, comp) => op + " " + printTree(comp) }.reduce((x, y) => x + " " + y)
-      f"(${printTree(left)} ${right} )"
+      f"(${printTree(left)} ${right})"
     case IntConstant(value) => value.toString()
     case FloatConstant(value) => value.toString()
     case ImaginaryConstant(value) => f"${value}j"
@@ -52,7 +54,16 @@ object TreePrinter extends Pipeline[Module, Unit] {
       f"${lower.map(printTree(_)).getOrElse("")}:${upper.map(printTree(_)).getOrElse("")}:${step.map(printTree(_)).getOrElse("")}"
     
     case Tuple(elts) => "(" + elts.map(printTree(_)).reduce(_ ++ ", " ++ _) + ")"
+    case List(elts) => "[" + elts.map(printTree(_)).reduce(_ ++ ", " ++ _) + "]"
     case NamedExpr(target, value) => f"${printTree(target)}:=${printTree(value)}"
+    case GeneratorExp(elt, generators) =>
+      f"(${printTree(elt)} ${printSeq(generators)})"
+    case ListComp(elt, generators) => f"[${printTree(elt)} ${printSeq(generators)}]"
+    case Comprehension(target, iter, ifs) =>
+      val ifsStr = ifs.map(printTree(_)).map("if " + _).reduce(_ ++ " " ++ _)
+      f"(for ${printTree(target)} in ${printTree(iter)} ${ifsStr})"
+    case Yield(value) => f"(yield ${value.map(printTree(_)).getOrElse("")})"
+    case YieldFrom(value) => f"(yield from ${printTree(value)})"
     case _ => "???"
   }
 }

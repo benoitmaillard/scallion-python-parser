@@ -13,7 +13,7 @@ import spp.structure.TokenClasses._
 import scala.language.implicitConversions
 
 object Parser extends Pipeline[Iterator[Tokens.Token], Module]
-with Syntaxes with ll1.Parsing with Operators with ll1.Debug  {
+with Syntaxes with ll1.Parsing with Operators with ll1.Debug with PrettyPrinting  {
   type Token = Tokens.Token
   type Kind = TokenClass
 
@@ -23,6 +23,9 @@ with Syntaxes with ll1.Parsing with Operators with ll1.Debug  {
   case class SubscriptTrailer(slices: Slice) extends AtomTrailer
   case class NameTrailer(name: String) extends AtomTrailer
 
+  trait TestListCompTrailer
+  case class CompForTrailer(comp: Seq[Comprehension]) extends TestListCompTrailer
+  case class ExprSeqTrailer(seq: Seq[Expr]) extends TestListCompTrailer
   implicit def classToSyntax(k: Kind): Syntax[Token] = elem(k)
 
   def kw(value: String): Syntax[String] = accept(KeywordClass(value)){ case _ => value }
@@ -37,6 +40,12 @@ with Syntaxes with ll1.Parsing with Operators with ll1.Debug  {
   def op(value: String): Syntax[String] = accept(OperatorClass(value)){ case _ => value }
 
   def oneOfOp(values: String*) = values.map(op(_)).reduce(_ | _)
+
+  def singleExprOrTuple(exps: Seq[Expr]) = exps match {
+    case Nil => Tuple(Seq.empty)
+    case head :: Nil => head
+    case seq => Tuple(seq)
+  }
 
   lazy val nameString: Syntax[String] = accept(NameClass){ case Identifier(name) => name }
 
@@ -105,6 +114,11 @@ with Syntaxes with ll1.Parsing with Operators with ll1.Debug  {
       case _ ~ _ ~ seqSeqStmts ~ _ => seqSeqStmts.reduce(_ ++ _)
     }
 
+  lazy val namedExprTest: Syntax[Expr] = test ~ opt(op(":=") ~ test) map {
+    case t ~ None => t
+    case t1 ~ Some(_ ~ t2) => NamedExpr(t1, t2)
+  }
+
   // lazy val namedExprTest: Syntax[Expr] = ???
   lazy val test: Syntax[Expr] = recursive(
     orTest ~ opt(kw("if") ~ orTest ~ kw("else") ~ test) /* lambdef*/ map {
@@ -112,6 +126,8 @@ with Syntaxes with ll1.Parsing with Operators with ll1.Debug  {
       case v ~ None => v
     }
   )
+
+  lazy val testNoCond: Syntax[Expr] = orTest /*lambdef_no_cond*/
 
   lazy val orTest: Syntax[Expr] = operators(notTest)(
     kw("or") is LeftAssociative,
@@ -142,7 +158,7 @@ with Syntaxes with ll1.Parsing with Operators with ll1.Debug  {
     case _ ~ None => "is"
   }
 
-  lazy val starExpr = op("*") ~ expr map { case _ ~ e => e }
+  lazy val starExpr: Syntax[Expr] = op("*") ~ expr map { case _ ~ e => Starred(e) }
 
   lazy val expr: Syntax[Expr] = operators(atomExpr)(
     op("|") is LeftAssociative,
@@ -169,7 +185,37 @@ with Syntaxes with ll1.Parsing with Operators with ll1.Debug  {
   }
 
   // TODO comprehensions, ellipsis and strings
-  lazy val atom: Syntax[Expr] = name | number | atomPredef
+  lazy val atom: Syntax[Expr] =
+    recursive (name | number | atomPredef | atomParens | atomBrackets)
+
+  lazy val atomParens: Syntax[Expr] = del("(") ~ opt(yieldExpr | atomParensContent) ~ del(")") map {
+    case _ ~ None ~ _ => Tuple(Seq.empty) // empty parenthesis is the 0-tuple
+    case _ ~ Some(e) ~ _ => e
+  }
+  
+  lazy val atomParensContent: Syntax[Expr] = testListComp map {
+    case (e, CompForTrailer(compSeq)) => GeneratorExp(e, compSeq)
+    case (e, ExprSeqTrailer(exprSeq)) => exprSeq match {
+      case Nil => e
+      case seq => Tuple(e +: seq)
+    }
+  }
+
+  lazy val atomBrackets: Syntax[Expr] =
+    del("[") ~ opt(atomBracketsContent) ~ del("]") map {
+      case _ ~ None ~ _ => List(Seq.empty)
+      case _ ~ Some(e) ~ _ => e
+    }
+
+  lazy val atomBracketsContent: Syntax[Expr] = testListComp map {
+    case (e, CompForTrailer(compSeq)) => GeneratorExp(e, compSeq)
+    case (e, ExprSeqTrailer(exprSeq)) => exprSeq match {
+      case Nil => e
+      case seq => List(e +: seq)
+    }
+  }
+
+
   
   lazy val atomPredef: Syntax[Expr] = (kw("None") | kw("True") | kw("False")) map {
     case v => Name(v)
@@ -232,13 +278,49 @@ with Syntaxes with ll1.Parsing with Operators with ll1.Debug  {
   // [x:x :x ]
   lazy val sliceOp: Syntax[Option[Expr]] = del(":") ~ opt(test) map { case _ ~ o => o }
 
+  // either a list comprehension or a tuple
+  lazy val testListComp: Syntax[(Expr, TestListCompTrailer)] =
+    (namedExprTest | starExpr) ~ (compForAsTestListCompTrailer | namedOrStarListComp) map {
+      case e ~ f => (e, f)
+    }
+  
+  lazy val compForAsTestListCompTrailer: Syntax[TestListCompTrailer] =
+    compFor map (CompForTrailer(_))
+
+  lazy val compFor: Syntax[Seq[Comprehension]] = /*[async]*/
+    kw("for") ~ exprList ~ kw("in") ~ orTest ~ opt(compIter) map {
+      case _ ~ forExps ~ _ ~ inExp ~ optFollow => optFollow match {
+        case None => Seq(Comprehension(singleExprOrTuple(forExps), inExp, Seq.empty))
+        case Some((ifs, comps)) => {
+          val headComp = Comprehension(singleExprOrTuple(forExps), inExp, ifs)
+          headComp +: comps
+        }
+      }
+    }
+  
+  lazy val compIf: Syntax[(Seq[Expr], Seq[Comprehension])] =
+    kw("if") ~ testNoCond ~ opt(compIter) map {
+      case _ ~ e ~ Some((ifs, comps)) => (e +: ifs, comps)
+      case _ ~ e ~ None => (Seq(e), Seq.empty)
+    }
+  lazy val compIter: Syntax[(Seq[Expr], Seq[Comprehension])] = recursive(
+    ((compFor.map (s => (Seq.empty[Expr], s))) | compIf)
+  )
+  // TODO optional trailing ','
+  lazy val exprList: Syntax[Seq[Expr]] = (expr | starExpr) ~ many(del(",") ~ (expr | starExpr)) map {
+    case e1 ~ s => e1 +: s.map{ case _ ~ e => e }
+  }
+
+  lazy val namedOrStarListComp: Syntax[TestListCompTrailer] =
+    many(del(",") ~ (namedExprTest | starExpr)) map(seq => ExprSeqTrailer(seq.map{ case _ ~ e => e}))
+
   lazy val testListStarExpr: Syntax[Expr] = testListStarExprP1 map {
     case e +: Nil => e
     case seq => Tuple(seq)
   }
 
   lazy val testListStarExprP1: Syntax[Seq[Expr]] = recursive(
-    (test /* | starExpr*/) ~ opt(testListStarExprP2) map {
+    (test | starExpr) ~ opt(testListStarExprP2) map {
       case t ~ tListOpt => t +: tListOpt.getOrElse(Seq.empty)
     })
 
@@ -247,16 +329,28 @@ with Syntaxes with ll1.Parsing with Operators with ll1.Debug  {
       case _ ~ tListOpt => tListOpt.getOrElse(Seq.empty)
     }
 
-  lazy val yieldExpr: Syntax[Yield] = kw("yield") ~ opt(yieldArg) map {
-    case _ ~ o => Yield(o)
+  lazy val yieldExpr: Syntax[Expr] = kw("yield") ~ opt(yieldArg | yieldFrom) map {
+    case _ ~ None => Yield(None)
+    case _ ~ Some(y) => y
   }
-  lazy val yieldArg: Syntax[Expr] = kw("from") ~ (test | testListStarExpr) map {
-    case _ ~ e => e
+
+  lazy val yieldArg: Syntax[Expr] = testListStarExpr map {
+    case e => Yield(Some(e))
+  }
+
+  lazy val yieldFrom: Syntax[Expr] = kw("from") ~ test map {
+    case _ ~ t => YieldFrom(t)
   }
   
   def run(ctx: Context)(v: Iterator[Token]): Module = {
     if (!module.isLL1) {
       debug(module)
+
+      println(namedExprTest.first)
+      println(starExpr.first)
+      println((expr | starExpr).first)
+      println(test.first)
+
       ctx.reporter.fatal("Syntax is not LL1!")
     } else {
       println("Syntax is LL1!")
