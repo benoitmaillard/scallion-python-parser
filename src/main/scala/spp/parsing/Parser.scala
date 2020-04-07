@@ -19,12 +19,6 @@ with Syntaxes with ll1.Parsing with Operators with ll1.Debug with PrettyPrinting
 
   import Implicits._
 
-  // TODO necessary ?
-  trait AtomTrailer
-  case class CallArgsTrailer(args: Seq[CallArg]) extends AtomTrailer
-  case class SubscriptTrailer(slices: Slice) extends AtomTrailer
-  case class NameTrailer(name: String) extends AtomTrailer
-
   implicit def classToSyntax(k: Kind): Syntax[Token] = elem(k)
 
   def kw(value: String): Syntax[String] = accept(KeywordClass(value))({
@@ -183,10 +177,12 @@ with Syntaxes with ll1.Parsing with Operators with ll1.Debug with PrettyPrinting
     ) map {
     case e ~ Nil => e
     case e ~ trailers => trailers.foldLeft(e)((previousExp, trailer) => trailer match {
-      case CallArgsTrailer(args) => Call(previousExp, args) // previousExp(args)
-      case SubscriptTrailer(slice) => Subscript(previousExp, slice)
-      case NameTrailer(name) => Attribute(previousExp, name) 
-    });
+      case Left(name) => Attribute(previousExp, name)
+      case Right(either) => either match {
+        case Left(args) => Call(previousExp, args)
+        case Right(slice) => Subscript(previousExp, slice)
+      } 
+    })
   }
 
   // TODO comprehensions, ellipsis and strings
@@ -221,21 +217,21 @@ with Syntaxes with ll1.Parsing with Operators with ll1.Debug with PrettyPrinting
   }
   
   // something immediately after an atomic expression
-  lazy val trailer: Syntax[AtomTrailer] = trailerCall | trailerSubscript | trailerName
-  lazy val trailerCall: Syntax[AtomTrailer] =
-    del("(").skip ~ opt(argList) ~ del(")").skip map { case o => CallArgsTrailer(o.getOrElse(Nil))}
-  lazy val argList: Syntax[Seq[CallArg]] = argument ~ many(del(",").skip ~ argument) map { // ~ opt(",")
-    case a1 ~ seq => a1 +: seq
-  } 
-  lazy val trailerSubscript: Syntax[AtomTrailer] =
+  lazy val trailer: Syntax[Either[String, Either[Seq[CallArg], Slice]]] =
+    trailerName || (trailerCall || trailerSubscript)
+
+  lazy val trailerCall: Syntax[Seq[CallArg]] =
+    del("(").skip ~ argList ~ del(")").skip
+  lazy val argList: Syntax[Seq[CallArg]] = repsep(argument, del(","))
+
+  lazy val trailerSubscript: Syntax[Slice] =
     del("[").skip ~ subscriptList ~ del("]").skip map {
-      case (sl +: Nil) => SubscriptTrailer(sl)
-      case (slices) => SubscriptTrailer(ExtSlice(slices))
+      case (sl +: Nil) => sl
+      case (slices) => ExtSlice(slices)
     }
-  lazy val subscriptList: Syntax[Seq[Slice]] = subscript ~ many(del(",").skip ~ subscript) map { // ~ opt(",")
-    case s1 ~ seq => s1 +: seq
-  }
-  lazy val trailerName: Syntax[AtomTrailer] = del(".").skip ~ nameString map { case n => NameTrailer(n) }
+  lazy val subscriptList: Syntax[Seq[Slice]] = rep1sep(subscript, del(","))
+
+  lazy val trailerName: Syntax[String] = del(".").skip ~ nameString
 
   lazy val argument: Syntax[CallArg] = argumentStartingWithTest | argumentStar | argumentDoubleStar
   lazy val argumentStartingWithTest: Syntax[CallArg] =
