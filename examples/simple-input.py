@@ -1,5 +1,5 @@
 x, y, z = y, s, d = a, b, c; x = y
-a = b;
+a = b
 x = y if a else z
 x = a and b
 x = not x is not b
