@@ -34,6 +34,29 @@ object Lexer extends Lexers with CharRegExps {
   }
 
   def unapply(tokens: Seq[Token]): String = {
+    // code strongly inspired from scallion lambda example
+    // https://github.com/epfl-lara/scallion/blob/master/example/lambda/Lambda.scala
+
+    val spaceMap: ((Token, Token)) => String = {
+      case (Delimiter(d), _) => d match {
+        case "=" | "," => " "
+        case _ => ""
+      }
+      case (_, Delimiter(d)) => d match {
+        case "=" => " "
+        case _ => ""
+      }
+      case (_:Identifier | _:BytesLiteral | _:FloatLiteral | _:ImaginaryLiteral |
+        _:IntLiteral | _:StringLiteral | _:Keyword, follow) => follow match {
+        case _:Delimiter => ""
+        case _ => " "
+      }
+      case (_:Operator, _) | (_, _:Operator) => " "
+      case _ => ""
+    }
+
+    val spaces = "" +: tokens.zip(tokens.tail).map(spaceMap)
+
     val strings = tokens map {
       case BytesLiteral(value) => "b\"" + value + "\""
       case Dedent() => ""
@@ -51,7 +74,7 @@ object Lexer extends Lexers with CharRegExps {
       case _ => ""
     }
 
-    strings.mkString(" ")
+    spaces.zip(strings).map(x => x._1 + x._2).mkString("")
   }
   
   def removeDelimiters(str: String, delimiter: Char) = {
