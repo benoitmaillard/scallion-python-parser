@@ -6,9 +6,9 @@ import spp.structure.AbstractSyntaxTree._
 
 import scala.language.implicitConversions
 
-object TreePrinter extends Pipeline[Module, Unit] {
+object TreePrinter {
 
-  override def run(ctx: Context)(m: Module): Unit = {
+  def apply(ctx: Context, m: Module): Unit = {
     println(printTree(m))
   }
 

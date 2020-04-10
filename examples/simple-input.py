@@ -7,6 +7,7 @@ x = x < y < z == a
 x = 1 + 4j
 x = True
 a.x = 5
+x + 1 if True else (2 * test)
 a = some_call(x, y)
 a = x[5:3:4]
 a = x[0, 3]

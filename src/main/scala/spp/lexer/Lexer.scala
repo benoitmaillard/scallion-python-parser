@@ -13,8 +13,7 @@ import scala.annotation.tailrec
   * Takes an list of files as input and produces the corresponding sequence
   * of tokens
   */
-object Lexer extends Pipeline[File, Iterator[Token]] with Lexers
-with CharRegExps {
+object Lexer extends Lexers with CharRegExps {
   type Token = spp.structure.Tokens.Token
   type Position = SourcePosition
 
@@ -25,13 +24,34 @@ with CharRegExps {
     * @param sources list of file
     * @return resulting tokens
     */
-  def run(ctx: Context)(sources: File): Iterator[Token] = {
+  def apply(ctx: Context, sources: File): Iterator[Token] = {
     val tokens = lexer.spawn(
       Source.fromFile(sources, SourcePositioner(sources))
     ).toList
 
     val result = TokensCleaner(tokens)(ctx).process()
     result.iterator
+  }
+
+  def unapply(tokens: Seq[Token]): String = {
+    val strings = tokens map {
+      case BytesLiteral(value) => "b\"" + value + "\""
+      case Dedent() => ""
+      case Delimiter(del) => del
+      case EOF() => ""
+      case FloatLiteral(value) => value
+      case Identifier(name) => name
+      case ImaginaryLiteral(value) => value.toString + "j" 
+      case Indent() => ""
+      case IntLiteral(value) => value
+      case Keyword(name) => name
+      case Newline() => "\n"
+      case Operator(op) => op
+      case StringLiteral(prefix, value) => prefix + "\"" + value + "\""
+      case _ => ""
+    }
+
+    strings.mkString(" ")
   }
   
   def removeDelimiters(str: String, delimiter: Char) = {
@@ -187,8 +207,8 @@ with CharRegExps {
 /**
   * Displays each tokens on a separated line
   */
-object PrintTokens extends Pipeline[Iterator[Token], Unit] {
-  def run(ctx: Context)(tokens: Iterator[Token]) = {
+object TokensPrinter {
+  def apply(tokens: Iterator[Token]) = {
     tokens.foreach(println(_))
   }
 }

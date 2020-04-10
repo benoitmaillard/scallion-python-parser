@@ -7,17 +7,18 @@ import java.io.File
 object Main {
   def main(args: Array[String]): Unit = {
     val context = Context(new Reporter, args.toList)
-    val pipeline = Lexer andThen Parser andThen TreePrinter
-    
+
     try {
-      if (context.files.isEmpty) {
+      if (false) {
         context.reporter.fatal("No source files provided")
       } else {
-        pipeline.run(context){
-          val file = new File(context.files.head)
-          if (file.exists()) file
-          else context.reporter.fatal(s"File ${file.getName()} not found")
+        val file = new File("./examples/simple-input.py") // new File(context.files.head)
+        if (file.exists()) {
+          val tokens = Lexer(context, file)
+          val tree = Parser(context, tokens)
+          TreePrinter(context, tree)
         }
+        else context.reporter.fatal(s"File ${file.getName()} not found")
       }
       
       context.reporter.terminateIfErrors()
