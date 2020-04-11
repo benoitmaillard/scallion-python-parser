@@ -47,13 +47,6 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
     case _ => Seq()
   })
 
-  def compKw(value1: String, value2: String): Syntax[String] = kw(value1) ~ kw(value2) map ({
-    case v1 ~ v2 => v1 ++ " " ++ v2
-  }, {
-    case _ => Seq() // TODO
-    case _ => Seq(value1 ~ value2)
-  })
-
   // helper function
   def singleExprOrTuple(exps: Seq[Expr]) = exps match {
     case Seq() => Tuple(Seq.empty)
@@ -204,11 +197,18 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
 
   lazy val comparisonOp = oneOf(
     op("<"), op(">"), op("=="), op(">="), op("<="), op("<>"), op("!="),
-    kw("in"), compKw("not", "in"), isOperator
+    kw("in"), notIn, isOrIsNot
   )
 
+  lazy val notIn: Syntax[String] = kw("not") ~ kw("in") map ({
+    case _ => "not in"
+  }, {
+    case "not in" => Seq("not" ~ "in")
+    case _ => Seq()
+  })
+
   // Special case for LL1
-  lazy val isOperator: Syntax[String] = kwU("is").skip ~ opt(kw("not")) map ({
+  lazy val isOrIsNot: Syntax[String] = kwU("is").skip ~ opt(kw("not")) map ({
     case Some(_) => "is not"
     case None => "is"
   }, {
