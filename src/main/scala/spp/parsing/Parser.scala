@@ -480,8 +480,6 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
       case LL1.UnexpectedEnd(rest) => ctx.reporter.fatal("Invalid end")
     }
 
-    println(res)
-
     println("Pretty printing: ")
     val pretty = unapply(res).get
     println(pretty)
@@ -489,11 +487,8 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
     res
   }
 
-  def unapply(value: Module): Option[String] ={
-    val it = printer(value).take(3).toList
-    it.foreach(println(_))
-    it.map(Lexer.unapply(_)).toList.headOption
-
+  def unapply(value: Module): Option[String] = {
+    printer(value).take(1).map(Lexer.unapply(_)).toList.headOption
   }
   
   def getKind(token: Token): Kind = token match {

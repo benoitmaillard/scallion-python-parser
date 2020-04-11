@@ -12,11 +12,10 @@ object Main {
       if (false) {
         context.reporter.fatal("No source files provided")
       } else {
-        val file = new File("./examples/simple-input.py") // new File(context.files.head)
+        val file = new File(context.files.head)
         if (file.exists()) {
           val tokens = Lexer(context, file)
           val tree = Parser(context, tokens)
-          TreePrinter(context, tree)
         }
         else context.reporter.fatal(s"File ${file.getName()} not found")
       }
