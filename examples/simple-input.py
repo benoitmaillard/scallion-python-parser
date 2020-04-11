@@ -19,3 +19,6 @@ a = (yield x)
 a = (yield)
 b = (yield from x)
 a = [1, 2, 3]
+x += 5
+x: int
+x: int = 5

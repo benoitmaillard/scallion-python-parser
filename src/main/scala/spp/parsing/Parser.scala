@@ -115,14 +115,36 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
   lazy val smallStmt: Syntax[Statement] = exprStmt /*| delStmt | passStmt | flowStmt*/
 
   lazy val exprStmt: Syntax[Statement] =
-    testListStarExpr ~ many(delU("=").skip ~ testListStarExpr) map ({
-      case e ~ Seq() => ExprStmt(e)
-      case e ~ seq => Assign(e +: seq.init, seq.last)
+    testListStarExpr ~ opt(
+      many1(delU("=").skip ~ (yieldExpr | testListStarExpr)) ||
+      augAssignOp ~ (yieldExpr | testList) ||
+      annAssign
+    ) map ({
+      case e ~ None => ExprStmt(e)
+      case e ~ Some(Left(Left(seq))) => Assign(e +: seq.init, seq.last)
+      case e ~ Some(Left(Right(op ~ e2))) => AugAssign(e, op, e2)
+      case e ~ Some(Right((ann, opt))) => AnnAssign(e, ann, opt)
     }, {
-      case ExprStmt(e) => Seq(e ~ Seq.empty)
-      case Assign(targets, value) => Seq(targets.head ~ (targets.tail :+ value))
+      case ExprStmt(e) => Seq(e ~ None)
+      case Assign(targets, value) => Seq(targets.head ~ Some(Left(Left(targets.tail :+ value))))
+      case AugAssign(e, op, e2) => Seq(e ~ Some(Left(Right(op ~ e2))))
+      case AnnAssign(e, ann, opt, _) => Seq(e ~ Some(Right(ann, opt)))
       case _ => Seq()
     })
+  
+  lazy val annAssign: Syntax[(Expr, Option[Expr])] =
+    delU(":").skip ~ test ~ opt(delU("=").skip ~ (yieldExpr | testListStarExpr)) map ({
+      case t ~ opt => (t, opt)
+    }, {
+      case (t, opt) => Seq(t ~ opt)
+    })
+
+  lazy val augAssignOp: Syntax[String] = oneOf(
+    del("+="), del("-="), del("*="), del("@="), del("/="), del("%="), del("&="),
+    del("|="), del("^="), del("<<="), del(">>="), del("**="), del("//=")
+  )
+    
+
   /*
   lazy val delStmt: Syntax[Statement] = ???
   lazy val passStmt: Syntax[Statement] = ???
@@ -440,6 +462,15 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
     rep1sep(test | starExpr, delU(",")) /*~ opt(del(","))*/ map ({
       case Seq(tail) /*~ None*/ => tail
       case seq /*~ _*/ => Tuple(seq)
+    }, {
+      case Tuple(seq) => Seq(seq)
+      case e => Seq(Seq(e))
+    })
+
+  lazy val testList: Syntax[Expr] =
+    rep1sep(test, delU(",")) map ({
+      case Seq(t) => t
+      case seq => Tuple(seq)
     }, {
       case Tuple(seq) => Seq(seq)
       case e => Seq(Seq(e))

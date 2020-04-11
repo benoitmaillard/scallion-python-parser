@@ -13,8 +13,8 @@ object AbstractSyntaxTree {
   case class Return() extends Statement
   case class Delete() extends Statement
   case class Assign(targets: Seq[Expr], value: Expr) extends Statement
-  case class AugAssign() extends Statement
-  case class AnnAssign() extends Statement
+  case class AugAssign(target: Expr, op: String, value: Expr) extends Statement
+  case class AnnAssign(target: Expr, annotation: Expr, value: Option[Expr], simple: Boolean = false) extends Statement
   case class For() extends Statement
   case class AsyncFor() extends Statement
   case class While() extends Statement

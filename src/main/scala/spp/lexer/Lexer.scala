@@ -38,14 +38,8 @@ object Lexer extends Lexers with CharRegExps {
     // https://github.com/epfl-lara/scallion/blob/master/example/lambda/Lambda.scala
 
     val spaceMap: ((Token, Token)) => String = {
-      case (Delimiter(d), _) => d match {
-        case "=" | "," => " "
-        case _ => ""
-      }
-      case (_, Delimiter(d)) => d match {
-        case "=" => " "
-        case _ => ""
-      }
+      case (Delimiter(d), _) => if (d.contains("=") || ":;,".contains(d)) " " else ""
+      case (_, Delimiter(d)) => if (d.contains("=")) " " else ""
       case (_:Identifier | _:BytesLiteral | _:FloatLiteral | _:ImaginaryLiteral |
         _:IntLiteral | _:StringLiteral | _:Keyword, follow) => follow match {
         case _:Delimiter => ""
