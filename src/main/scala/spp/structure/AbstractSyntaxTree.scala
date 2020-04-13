@@ -10,24 +10,24 @@ object AbstractSyntaxTree {
   case class FunctionDef() extends Statement
   case class AsyncFunctionDef() extends Statement
   case class ClassDef() extends Statement
-  case class Return() extends Statement
-  case class Delete() extends Statement
+  case class Return(value: Option[Expr]) extends Statement
+  case class Delete(targets: Seq[Expr]) extends Statement
   case class Assign(targets: Seq[Expr], value: Expr) extends Statement
   case class AugAssign(target: Expr, op: String, value: Expr) extends Statement
   case class AnnAssign(target: Expr, annotation: Expr, value: Option[Expr], simple: Boolean = false) extends Statement
-  case class For() extends Statement
-  case class AsyncFor() extends Statement
-  case class While() extends Statement
-  case class If() extends Statement
+  case class For(target: Expr, iter: Expr, body: Seq[Statement], orelse: Seq[Statement]) extends Statement
+  case class AsyncFor(target: Expr, iter: Expr, body: Seq[Statement], orelse: Seq[Statement]) extends Statement
+  case class While(test: Expr, body: Seq[Statement], orelse: Seq[Statement]) extends Statement
+  case class If(test: Expr, body: Seq[Statement], orelse: Seq[Statement]) extends Statement
   case class With() extends Statement
   case class AsyncWith() extends Statement
-  case class Raise() extends Statement
+  case class Raise(exc: Option[Expr], cause: Option[Expr]) extends Statement
   case class Try() extends Statement
-  case class Assert() extends Statement
-  case class Import() extends Statement
-  case class ImportFrom() extends Statement
-  case class Global() extends Statement
-  case class Nonlocal() extends Statement
+  case class Assert(test: Expr, msg: Option[Expr]) extends Statement
+  case class Import(names: Seq[Alias]) extends Statement
+  case class ImportFrom(module: Option[String], names: Seq[Alias], level: Option[Int]) extends Statement
+  case class Global(names: Seq[String]) extends Statement
+  case class Nonlocal(names: Seq[String]) extends Statement
   case object Pass extends Statement
   case object Break extends Statement
   case object Continue extends Statement
@@ -76,6 +76,8 @@ object AbstractSyntaxTree {
   case class KeywordArg(arg: Option[Expr], value: Expr) extends CallArg
 
   case class Comprehension(target: Expr, iter: Expr, ifs: Seq[Expr] /*isAsync*/) extends Tree
+
+  case class Alias(name: String, asname: Option[String]) extends Tree
 
   trait Slice extends Tree
   case class DefaultSlice(lower: Option[Expr], upper: Option[Expr], step: Option[Expr]) extends Slice

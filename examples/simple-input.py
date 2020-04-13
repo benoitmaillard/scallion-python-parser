@@ -1,3 +1,20 @@
+import x as y
+import x.x as y
+from module.x import y
+from ..x import y
+from .... import *
+
+pass
+continue
+break
+raise SomeError(msg)
+
+global a, b, c
+nonlocal a, b, c
+
+assert x != None, msg
+return x
+
 x, y, z = y, s, d = a, b, c; x = y
 a = b
 x = y if a else z

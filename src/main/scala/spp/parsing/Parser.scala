@@ -20,6 +20,12 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
 
   import SafeImplicits._
 
+  def followsTuple[A, B](s1: Syntax[A], s2: Syntax[B]): Syntax[(A, B)] = s1 ~ s2 map ({
+    case a ~ b => (a, b)
+  }, {
+    case (a, b) => Seq(a ~ b)
+  })
+
   def kwU(value: String): Syntax[Unit] = elem(KeywordClass(value)).unit(Keyword(value))
   def delU(value: String): Syntax[Unit] = elem(DelimiterClass(value)).unit(Delimiter(value))
   def opU(value: String): Syntax[Unit] = elem(OperatorClass(value)).unit(Operator(value))
@@ -112,7 +118,9 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
   lazy val decorated: Syntax[Statement] = ???
   lazy val asyncStmt: Syntax[Statement] = ???*/
 
-  lazy val smallStmt: Syntax[Statement] = exprStmt /*| delStmt | passStmt | flowStmt*/
+  lazy val smallStmt: Syntax[Statement] =
+    exprStmt | delStmt | passStmt | flowStmt | importStmt |
+    globalStmt | nonLocalStmt | assertStmt
 
   lazy val exprStmt: Syntax[Statement] =
     testListStarExpr ~ opt(
@@ -144,16 +152,128 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
     del("|="), del("^="), del("<<="), del(">>="), del("**="), del("//=")
   )
     
+  lazy val delStmt: Syntax[Statement] = kwU("del").skip ~ exprList map ({
+    case exps => Delete(exps)
+  }, {
+    case Delete(exps) => Seq(exps)
+    case _ => Seq()
+  })
 
-  /*
-  lazy val delStmt: Syntax[Statement] = ???
-  lazy val passStmt: Syntax[Statement] = ???
-  lazy val flowStmt: Syntax[Statement] = ???
-  lazy val importStmt: Syntax[Statement] = ???
-  lazy val globalStmt: Syntax[Statement] = ???
-  lazy val nonLocalStmt: Syntax[Statement] = ???
-  lazy val assertStmt: Syntax[Statement] = ???*/
-  lazy val yieldStmt: Syntax[ExprStmt] = yieldExpr map ({
+  lazy val passStmt: Syntax[Statement] = kw("pass") map ({
+    case pass => Pass
+  }, {
+    case Pass => Seq("pass")
+    case _ => Seq()
+  })
+
+  lazy val flowStmt: Syntax[Statement] =
+    breakStmt | continueStmt | returnStmt | raiseStmt | yieldStmt
+  lazy val globalStmt: Syntax[Statement] =
+    kwU("global").skip ~ rep1sep(nameString, delU(",")) map ({
+      case names => Global(names)
+    }, {
+      case Global(names) => Seq(names)
+      case _ => Seq()
+    })
+  lazy val nonLocalStmt: Syntax[Statement] =
+    kwU("nonlocal").skip ~ rep1sep(nameString, delU(",")) map ({
+      case names => Nonlocal(names)
+    }, {
+      case Nonlocal(names) => Seq(names)
+      case _ => Seq()
+    })
+  lazy val assertStmt: Syntax[Statement] =
+    kwU("assert").skip ~ test ~ opt(delU(",").skip ~ test) map ({
+      case t ~ opt => Assert(t, opt)
+    }, {
+      case Assert(t, opt) => Seq(t ~ opt)
+      case _ => Seq()
+    })
+  lazy val importStmt: Syntax[Statement] = importName | importFrom
+  lazy val importName: Syntax[Statement] = kwU("import").skip ~ dottedAsNames map ({
+    case aliases => Import(aliases)
+  }, {
+    case Import(aliases) => Seq(aliases)
+    case _ => Seq()
+  })
+
+  lazy val importFrom: Syntax[Statement] =
+    kwU("from").skip ~ (importFromRelative || dottedName) ~
+    kwU("import").skip ~ (importStar | delU("(").skip ~ asNames ~ delU(")").skip | asNames ) map ({
+      case Left((level, moduleOpt)) ~ names => ImportFrom(moduleOpt, names, Some(level))
+      case Right(module) ~ names => ImportFrom(Some(module), names, None)
+    }, {
+      case ImportFrom(moduleOpt, names, Some(level)) => Seq(Left((level, moduleOpt)) ~ names)
+      case ImportFrom(Some(module), names, None) => Seq(Right(module) ~ names)
+      case _ => Seq()
+    })
+
+  lazy val importFromRelative: Syntax[(Int, Option[String])] =
+    many1(del(".") /* |ellipsis*/) ~ opt(dottedName) map ({
+      case dots ~ optName => (dots.size, optName)
+    }, {
+      case (nDots, optName) => Seq(Seq.fill(nDots)(".") ~ optName)
+    })
+  
+  lazy val importStar: Syntax[Seq[Alias]] = op("*") map ({
+    case _ => Seq(Alias("*", None))
+  }, {
+    case Seq(Alias("*", _)) => Seq("*")
+    case _ => Seq()
+  })
+
+  lazy val asName: Syntax[Alias] =
+    nameString ~ opt(kwU("as").skip ~ nameString) map ({
+      case name ~ as => Alias(name, as)
+    }, {
+      case Alias(name, as) => Seq(name ~ as)
+      case _ => Seq()
+    })
+  lazy val dottedAsName: Syntax[Alias] =
+    dottedName ~ opt(kwU("as").skip ~ nameString) map ({
+      case name ~ as => Alias(name, as)
+    }, {
+      case Alias(name, as) => Seq(name ~ as)
+      case _ => Seq()
+    })
+
+  lazy val asNames: Syntax[Seq[Alias]] = rep1sep(asName, delU(","))
+  lazy val dottedAsNames: Syntax[Seq[Alias]] = rep1sep(dottedAsName, delU(","))
+
+  lazy val dottedName: Syntax[String] = rep1sep(nameString, delU(".")) map ({
+    case strs => strs.mkString(".")
+  }, {
+    case str => Seq(str.split('.'))
+  })
+
+  lazy val breakStmt: Syntax[Statement] = kw("break") map ({
+    case break => Break
+  }, {
+    case Break => Seq("break")
+    case _ => Seq()
+  }) 
+  lazy val continueStmt: Syntax[Statement] = kw("continue") map ({
+    case continue => Continue
+  }, {
+    case Continue => Seq("continue")
+    case _ => Seq()
+  })
+  lazy val returnStmt: Syntax[Statement] = kwU("return").skip ~ opt(testListStarExpr) map ({
+    case opt => Return(opt)
+  }, {
+    case Return(opt) => Seq(opt)
+    case _ => Seq()
+  })
+  lazy val raiseStmt: Syntax[Statement] =
+    kwU("raise").skip ~ opt(test ~ opt(kwU("from").skip ~ test)) map ({
+      case None => Raise(None, None)
+      case Some(e ~ o) => Raise(Some(e), o)
+    }, {
+      case Raise(None, _) => Seq(None)
+      case Raise(Some(e), o) => Seq(Some(e ~ o)) 
+    })
+
+  lazy val yieldStmt: Syntax[Statement] = yieldExpr map ({
     case yieldExp => ExprStmt(yieldExp)
   }, {
     case ExprStmt(yieldExp) => Seq(yieldExp)
