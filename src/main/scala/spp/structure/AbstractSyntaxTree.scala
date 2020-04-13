@@ -19,10 +19,10 @@ object AbstractSyntaxTree {
   case class AsyncFor(target: Expr, iter: Expr, body: Seq[Statement], orelse: Seq[Statement]) extends Statement
   case class While(test: Expr, body: Seq[Statement], orelse: Seq[Statement]) extends Statement
   case class If(test: Expr, body: Seq[Statement], orelse: Seq[Statement]) extends Statement
-  case class With() extends Statement
-  case class AsyncWith() extends Statement
+  case class With(items: Seq[WithItem], body: Seq[Statement]) extends Statement
+  case class AsyncWith(items: Seq[WithItem], body: Seq[Statement]) extends Statement
   case class Raise(exc: Option[Expr], cause: Option[Expr]) extends Statement
-  case class Try() extends Statement
+  case class Try(body: Seq[Statement], handlers: Seq[ExceptionHandler], orelse: Seq[Statement], finalbody: Seq[Statement]) extends Statement
   case class Assert(test: Expr, msg: Option[Expr]) extends Statement
   case class Import(names: Seq[Alias]) extends Statement
   case class ImportFrom(module: Option[String], names: Seq[Alias], level: Option[Int]) extends Statement
@@ -78,6 +78,10 @@ object AbstractSyntaxTree {
   case class Comprehension(target: Expr, iter: Expr, ifs: Seq[Expr] /*isAsync*/) extends Tree
 
   case class Alias(name: String, asname: Option[String]) extends Tree
+
+  case class ExceptionHandler(tpe: Option[Expr], name: Option[String], body: Seq[Statement])
+
+  case class WithItem(contextExpr: Expr, optionalVars: Option[Expr])
 
   trait Slice extends Tree
   case class DefaultSlice(lower: Option[Expr], upper: Option[Expr], step: Option[Expr]) extends Slice

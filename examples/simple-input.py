@@ -59,3 +59,22 @@ a = [1, 2, 3]
 x += 5
 x: int
 x: int = 5
+
+try:
+    some_statement()
+except ZeroDivisionError:
+    print(msg1)
+except ValueError:
+    print(msg2)
+else:
+    print(msg3)
+finally:
+    print(msg4)
+
+try:
+    some_statement()
+finally:
+    print(msg5)
+
+with open(path) as f, some_other_ressource as r:
+    l = f.readlines()

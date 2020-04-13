@@ -111,11 +111,11 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
   lazy val simpleStmt: Syntax[Seq[Statement]] =
     rep1sep(smallStmt, delU(";")) ~ newLine.skip
 
-  lazy val compoundStmt: Syntax[Statement] = ifStmt | whileStmt | forStmt /*| tryStmt
-    withStmt | funcDef | classDef | decorated | asyncStmt*/
+  lazy val compoundStmt: Syntax[Statement] = ifStmt | whileStmt | forStmt | tryStmt |
+    withStmt /*| funcDef | classDef | decorated | asyncStmt*/
 
-  lazy val optElse: Syntax[Seq[Statement]] =
-    opt(kwU("else").skip ~ delU(":").skip ~ suiteStmt) map ({
+  def optSuite(keyword: String): Syntax[Seq[Statement]] =
+    opt(kwU(keyword).skip ~ delU(":").skip ~ suiteStmt) map ({
       case optStatements => optStatements.getOrElse(Seq())
     }, {
       case Seq() => Seq(None)
@@ -125,7 +125,7 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
   lazy val ifStmt: Syntax[Statement] =
     ((kwU("if").skip ~ ifCondThen) +:
     many(kwU("elif").skip ~ ifCondThen)) ~
-    optElse map ({
+    optSuite("else") map ({
       case ifs ~ elze => {
         val (lastCond, lastCondBody) = ifs.last
         val lastIf = If(lastCond, lastCondBody, elze)
@@ -147,7 +147,7 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
   
   lazy val whileStmt: Syntax[Statement] =
     kwU("while").skip ~ namedExprTest ~ delU(":").skip ~ suiteStmt ~
-    optElse map ({
+    optSuite("else") map ({
       case cond ~ statements ~ elze => While(cond, statements, elze)
     }, {
       case While(cond, statements, elze) => Seq(cond ~ statements ~ elze)
@@ -155,15 +155,55 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
 
   lazy val forStmt: Syntax[Statement] =
     kwU("for").skip ~ exprList ~ kwU("in").skip ~ testList ~ delU(":").skip ~ suiteStmt ~
-    optElse map ({
+    optSuite("else") map ({
       case target ~ iter ~ body ~ orElse =>
         For(singleExprOrTuple(target), iter, body, orElse)
     }, {
       case For(Tuple(seq), iter, body, orElse) => Seq(seq ~ iter ~ body ~ orElse)
       case For(target, iter, body, orElse) => Seq(Seq(target) ~ iter ~ body ~ orElse)
     })
-  lazy val tryStmt: Syntax[Statement] = ???
-  lazy val withStmt: Syntax[Statement] = ???
+
+  lazy val tryStmt: Syntax[Statement] =
+    kwU("try").skip ~ delU(":").skip ~ suiteStmt ~
+    (
+      many1(except) ~ optSuite("else") ~ optSuite("finally") ||
+      kwU("finally").skip ~ delU(":").skip ~ suiteStmt
+    ) map ({
+      case body ~ Left(handlers ~ orelse ~ finalbody) => Try(body, handlers, orelse, finalbody)
+      case body ~ Right(finalbody) => Try(body, Seq(), Seq(), finalbody)
+    }, {
+      case Try(body, Seq(), Seq(), finalbody) =>
+        Seq(body ~ Right(finalbody))
+      case Try(body, handlers, orelse, finalbody) =>
+        Seq(body ~ Left(handlers ~ orelse ~ finalbody))
+    })
+
+  lazy val except: Syntax[ExceptionHandler] =
+    kwU("except").skip ~ opt(test ~ opt(kwU("as").skip ~ nameString)) ~
+    delU(":").skip ~ suiteStmt map ({
+      case None ~ body => ExceptionHandler(None, None, body)
+      case Some(tpe ~ optName) ~ body => ExceptionHandler(Some(tpe), optName, body)
+    }, {
+      case ExceptionHandler(None, None, body) => Seq(None ~ body)
+      case ExceptionHandler(Some(tpe), optName, body) => Seq(Some(tpe ~ optName) ~ body)
+      case _ => Seq()
+    })
+
+  lazy val withStmt: Syntax[Statement] =
+    kwU("with").skip ~ rep1sep(withItem, delU(",")) ~ delU(":").skip ~ suiteStmt map ({
+      case items ~ suite => With(items, suite)
+    }, {
+      case With(items, suite) => Seq(items ~ suite)
+      case _ => Seq()
+    })
+
+  lazy val withItem: Syntax[WithItem] =
+    test ~ opt(kwU("as").skip ~ expr) map ({
+      case item ~ optName => WithItem(item, optName)
+    }, {
+      case WithItem(item, optName) => Seq(item ~ optName)
+      case _ => Seq()
+    })
   lazy val funcDef: Syntax[Statement] = ???
   lazy val classDef: Syntax[Statement] = ???
   lazy val decorated: Syntax[Statement] = ???
