@@ -99,16 +99,47 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
     case _ => Seq()
   })
 
-  lazy val stmt: Syntax[Seq[Statement]] = simpleStmt /*| compoundStmt.map(st => Seq(st))*/
+  lazy val stmt: Syntax[Seq[Statement]] =
+    simpleStmt | (recursive(compoundStmt) map({
+      case st => Seq(st)
+    }, {
+      case Seq(st) => Seq(st)
+      case _ => Seq()
+    }))
 
   // One or more smallStmt on a single line
   lazy val simpleStmt: Syntax[Seq[Statement]] =
     rep1sep(smallStmt, delU(";")) ~ newLine.skip
 
-  /*lazy val compoundStmt: Syntax[Statement] = ifStmt | whileStmt | forStmt | tryStmt
-    withStmt | funcDef | classDef | decorated | asyncStmt
+  lazy val compoundStmt: Syntax[Statement] = ifStmt /*| whileStmt | forStmt | tryStmt
+    withStmt | funcDef | classDef | decorated | asyncStmt*/
 
-  lazy val ifStmt: Syntax[Statement] = ???
+  lazy val ifStmt: Syntax[Statement] =
+    ((kwU("if").skip ~ ifCondThen) +:
+    many(kwU("elif").skip ~ ifCondThen)) ~
+    opt(kwU("else").skip ~ delU(":").skip ~ suiteStmt) map ({
+      case ifs ~ elze => {
+        val (lastCond, lastCondBody) = ifs.last
+        val lastIf = If(lastCond, lastCondBody, elze.getOrElse(Seq()))
+
+        ifs.init.foldRight(lastIf){
+          case ((cond, body), accIf) => If(cond, body, Seq(accIf))
+        }
+      }
+    }, {
+      case iff:If => unfoldRight[(Expr, Seq[Statement]), Option[Seq[Statement]]] {
+        case Some(Seq(If(cond, body, elze))) => elze match {
+          case Seq() => ((cond, body), None)
+          case statements => ((cond, body), Some(statements))
+        }
+      }(Some(Seq(iff)))
+      case _ => Seq()
+    })
+  
+  // A condition (after if or elif) followed by statements
+  lazy val ifCondThen: Syntax[(Expr, Seq[Statement])] =
+    followsTuple(namedExprTest, delU(":").skip ~ suiteStmt)
+  
   lazy val whileStmt: Syntax[Statement] = ???
   lazy val forStmt: Syntax[Statement] = ???
   lazy val tryStmt: Syntax[Statement] = ???
@@ -116,7 +147,7 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
   lazy val funcDef: Syntax[Statement] = ???
   lazy val classDef: Syntax[Statement] = ???
   lazy val decorated: Syntax[Statement] = ???
-  lazy val asyncStmt: Syntax[Statement] = ???*/
+  lazy val asyncStmt: Syntax[Statement] = ???
 
   lazy val smallStmt: Syntax[Statement] =
     exprStmt | delStmt | passStmt | flowStmt | importStmt |
@@ -282,10 +313,12 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
   
   // What follows ':' (example after an if ...: or for ...:)
   lazy val suiteStmt: Syntax[Seq[Statement]] =
-    simpleStmt | (newLine.skip ~ indent.skip ~ many1(stmt) ~ dedent.skip).map ({
-      case seqSeqStmts => seqSeqStmts.reduce(_ ++ _)
+    (simpleStmt || newLine.skip ~ indent.skip ~ many1(stmt) ~ dedent.skip).map ({
+      case Left(statements) => statements
+      case Right(seqSeqStmts) => seqSeqStmts.reduce(_ ++ _)
     }, {
-      case statements => Seq(statements.map(Seq(_)))
+      // we always print the one statement per line version
+      case statements => Seq(Right(statements.map(Seq(_))))
     })
 
   lazy val namedExprTest: Syntax[Expr] = test ~ opt(opU(":=").skip ~ test) map ({
@@ -650,6 +683,8 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
     case Identifier(name) => NameClass
     case Delimiter(del) => DelimiterClass(del)
     case Newline() => NewlineClass
+    case Indent() => IndentClass
+    case Dedent() => DedentClass
     case EOF() => EOFClass
     case _ => OtherClass
   }

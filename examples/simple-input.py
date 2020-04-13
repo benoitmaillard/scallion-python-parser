@@ -15,6 +15,17 @@ nonlocal a, b, c
 assert x != None, msg
 return x
 
+if x:
+    x;y
+    a
+elif lol:
+    a
+else:
+    y
+
+if x: a
+elif y: b
+
 x, y, z = y, s, d = a, b, c; x = y
 a = b
 x = y if a else z
