@@ -111,28 +111,33 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
   lazy val simpleStmt: Syntax[Seq[Statement]] =
     rep1sep(smallStmt, delU(";")) ~ newLine.skip
 
-  lazy val compoundStmt: Syntax[Statement] = ifStmt /*| whileStmt | forStmt | tryStmt
+  lazy val compoundStmt: Syntax[Statement] = ifStmt | whileStmt | forStmt /*| tryStmt
     withStmt | funcDef | classDef | decorated | asyncStmt*/
+
+  lazy val optElse: Syntax[Seq[Statement]] =
+    opt(kwU("else").skip ~ delU(":").skip ~ suiteStmt) map ({
+      case optStatements => optStatements.getOrElse(Seq())
+    }, {
+      case Seq() => Seq(None)
+      case statements => Seq(Some(statements))
+    })
 
   lazy val ifStmt: Syntax[Statement] =
     ((kwU("if").skip ~ ifCondThen) +:
     many(kwU("elif").skip ~ ifCondThen)) ~
-    opt(kwU("else").skip ~ delU(":").skip ~ suiteStmt) map ({
+    optElse map ({
       case ifs ~ elze => {
         val (lastCond, lastCondBody) = ifs.last
-        val lastIf = If(lastCond, lastCondBody, elze.getOrElse(Seq()))
+        val lastIf = If(lastCond, lastCondBody, elze)
 
         ifs.init.foldRight(lastIf){
           case ((cond, body), accIf) => If(cond, body, Seq(accIf))
         }
       }
     }, {
-      case iff:If => unfoldRight[(Expr, Seq[Statement]), Option[Seq[Statement]]] {
-        case Some(Seq(If(cond, body, elze))) => elze match {
-          case Seq() => ((cond, body), None)
-          case statements => ((cond, body), Some(statements))
-        }
-      }(Some(Seq(iff)))
+      case iff:If => unfoldRight[(Expr, Seq[Statement]), Seq[Statement]] {
+        case Seq(If(cond, body, elze)) => ((cond, body), elze)
+      }(Seq(iff))
       case _ => Seq()
     })
   
@@ -140,8 +145,23 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
   lazy val ifCondThen: Syntax[(Expr, Seq[Statement])] =
     followsTuple(namedExprTest, delU(":").skip ~ suiteStmt)
   
-  lazy val whileStmt: Syntax[Statement] = ???
-  lazy val forStmt: Syntax[Statement] = ???
+  lazy val whileStmt: Syntax[Statement] =
+    kwU("while").skip ~ namedExprTest ~ delU(":").skip ~ suiteStmt ~
+    optElse map ({
+      case cond ~ statements ~ elze => While(cond, statements, elze)
+    }, {
+      case While(cond, statements, elze) => Seq(cond ~ statements ~ elze)
+    })
+
+  lazy val forStmt: Syntax[Statement] =
+    kwU("for").skip ~ exprList ~ kwU("in").skip ~ testList ~ delU(":").skip ~ suiteStmt ~
+    optElse map ({
+      case target ~ iter ~ body ~ orElse =>
+        For(singleExprOrTuple(target), iter, body, orElse)
+    }, {
+      case For(Tuple(seq), iter, body, orElse) => Seq(seq ~ iter ~ body ~ orElse)
+      case For(target, iter, body, orElse) => Seq(Seq(target) ~ iter ~ body ~ orElse)
+    })
   lazy val tryStmt: Syntax[Statement] = ???
   lazy val withStmt: Syntax[Statement] = ???
   lazy val funcDef: Syntax[Statement] = ???

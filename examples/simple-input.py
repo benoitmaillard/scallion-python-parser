@@ -26,6 +26,15 @@ else:
 if x: a
 elif y: b
 
+while (True):
+    print(x)
+    print(y)
+else:
+    print(xyz)
+
+for (x, y) in zip(range(0, 3), range(2, 5)):
+    print(x, y)
+
 x, y, z = y, s, d = a, b, c; x = y
 a = b
 x = y if a else z
