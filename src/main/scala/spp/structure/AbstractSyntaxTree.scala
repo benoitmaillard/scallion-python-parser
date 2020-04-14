@@ -7,7 +7,7 @@ object AbstractSyntaxTree {
   case class Module(body: Seq[Statement]) extends Tree
 
   trait Statement extends Tree
-  case class FunctionDef() extends Statement
+  case class FunctionDef(name: String, args: Arguments, body: Seq[Statement], decorators: Seq[Expr], returns: Option[Expr]) extends Statement
   case class AsyncFunctionDef() extends Statement
   case class ClassDef() extends Statement
   case class Return(value: Option[Expr]) extends Statement
@@ -67,7 +67,7 @@ object AbstractSyntaxTree {
   case class List(elts: Seq[Expr]) extends Expr
   case class Tuple(elts: Seq[Expr]) extends Expr
 
-  case class Arg(arg: String, annotation: Option[Expr], typeComment: Option[String]) extends Tree
+  case class Arg(arg: String, annotation: Option[Expr], default: Option[Expr]) extends Tree
 
   trait CallArg extends Tree
   case class PosArg(value: Expr) extends CallArg
@@ -82,6 +82,9 @@ object AbstractSyntaxTree {
   case class ExceptionHandler(tpe: Option[Expr], name: Option[String], body: Seq[Statement])
 
   case class WithItem(contextExpr: Expr, optionalVars: Option[Expr])
+
+  // kwonly are the args placed after vararg
+  case class Arguments(args: Seq[Arg], vararg: Option[Arg], kwonly: Seq[Arg], kwarg: Option[Arg]) extends Tree
 
   trait Slice extends Tree
   case class DefaultSlice(lower: Option[Expr], upper: Option[Expr], step: Option[Expr]) extends Slice

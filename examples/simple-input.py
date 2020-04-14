@@ -15,6 +15,14 @@ nonlocal a, b, c
 assert x != None, msg
 return x
 
+def f(x, y, z=3) -> int:
+    return 5
+
+def f2():
+    x = 1
+    y = 2
+    return
+
 if x:
     x;y
     a

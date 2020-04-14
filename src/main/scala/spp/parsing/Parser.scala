@@ -112,7 +112,7 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
     rep1sep(smallStmt, delU(";")) ~ newLine.skip
 
   lazy val compoundStmt: Syntax[Statement] = ifStmt | whileStmt | forStmt | tryStmt |
-    withStmt /*| funcDef | classDef | decorated | asyncStmt*/
+    withStmt | funcDef /*| classDef | decorated | asyncStmt*/
 
   def optSuite(keyword: String): Syntax[Seq[Statement]] =
     opt(kwU(keyword).skip ~ delU(":").skip ~ suiteStmt) map ({
@@ -204,7 +204,41 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
       case WithItem(item, optName) => Seq(item ~ optName)
       case _ => Seq()
     })
-  lazy val funcDef: Syntax[Statement] = ???
+
+  lazy val funcDef: Syntax[Statement] =
+    kwU("def").skip ~ nameString ~ parameters ~ opt(delU("->").skip ~ test) ~
+    delU(":").skip ~ suiteStmt map ({
+      case name ~ params ~ optReturnType ~ body => FunctionDef(name, params, body, Seq(), optReturnType)
+    }, {
+      case FunctionDef(name, params, body, Seq(), optReturnType) =>
+        Seq(name ~ params ~ optReturnType ~ body)
+      case _ => Seq()
+    })
+  
+  lazy val parameters: Syntax[Arguments] =
+    delU("(").skip ~ typedArgsList ~ delU(")").skip map ({
+      case (args, varargs, kwonly, kwargs) => Arguments(args, varargs, kwonly, kwargs)
+    }, {
+      case Arguments(args, varargs, kwonly, kwargs) => Seq((args, varargs, kwonly, kwargs))
+      case _ => Seq()
+    })
+
+  lazy val typedArgsList: Syntax[(Seq[Arg], Option[Arg], Seq[Arg], Option[Arg])] =
+    repsep(tfpdefDefault, delU(",")) map ({
+      case args => (args, None, Seq(), None)
+    }, {
+      case (args, None, Seq(), None) => Seq(args)
+      case _ => Seq()
+    })
+
+  lazy val tfpdefDefault: Syntax[Arg] =
+    nameString ~ opt(delU(":").skip ~ test) ~ opt(delU("=").skip ~ test) map ({
+      case name ~ optAnn ~ optDft => Arg(name, optAnn, optDft)
+    }, {
+      case Arg(name, optAnn, optDft) => Seq(name ~ optAnn ~ optDft)
+      case _ => Seq()
+    })
+
   lazy val classDef: Syntax[Statement] = ???
   lazy val decorated: Syntax[Statement] = ???
   lazy val asyncStmt: Syntax[Statement] = ???
