@@ -34,6 +34,19 @@ object Lexer extends Lexers with CharRegExps {
   }
 
   def unapply(tokens: Seq[Token]): String = {
+    def reorder(tokens: Seq[Token], acc: Seq[Token]): Seq[Token] = tokens match {
+      case Nil => acc
+      case head +: Nil => acc :+ head
+      case head +: scnd +: tail => (head, scnd) match {
+        case (Newline(), Indent()) => reorder(tail, acc :+ Indent() :+ Newline())
+        case (Newline(), Dedent()) => reorder(tail, acc :+ Dedent() :+ Newline())
+        case _=> reorder(scnd +: tail, acc :+ head)
+      }
+    }
+
+    val reordred = reorder(tokens, Seq())
+
+
     // code strongly inspired from scallion lambda example
     // https://github.com/epfl-lara/scallion/blob/master/example/lambda/Lambda.scala
 
@@ -49,24 +62,26 @@ object Lexer extends Lexers with CharRegExps {
       case _ => ""
     }
 
-    val spaces = "" +: tokens.zip(tokens.tail).map(spaceMap)
+    val spaces = "" +: reordred.zip(reordred.tail).map(spaceMap)
 
-    val strings = tokens map {
-      case BytesLiteral(value) => "b\"" + value + "\""
-      case Dedent() => ""
-      case Delimiter(del) => del
-      case EOF() => ""
-      case FloatLiteral(value) => value
-      case Identifier(name) => name
-      case ImaginaryLiteral(value) => value.toString + "j" 
-      case Indent() => ""
-      case IntLiteral(value) => value
-      case Keyword(name) => name
-      case Newline() => "\n"
-      case Operator(op) => op
-      case StringLiteral(prefix, value) => prefix + "\"" + value + "\""
-      case _ => ""
-    }
+    val strings = reordred.foldLeft((Seq.empty[String], 0)){
+      case ((strings, level), current) => current match {
+      case BytesLiteral(value) => (("b\"" ++ value ++ "\"") +: strings, level)
+      case Delimiter(del) => (del +: strings, level)
+      case Identifier(name) => (name +: strings, level)
+      case ImaginaryLiteral(value) => ((value.toString + "j") +: strings, level)
+      case FloatLiteral(value) => (value.toString +: strings, level)
+      case IntLiteral(value) => (value.toString +: strings, level)
+      case StringLiteral(prefix, value) => ((prefix + "\"" + value + "\"") +: strings, level)
+      case Keyword(name) => (name +: strings, level)
+      case Indent() => ("" +: strings, level + 1)
+      case Dedent() => ("" +: strings, level - 1)
+      case Newline() => (("\n" + (" " * 4 * level)) +: strings, level)
+      case Operator(op) => (op +: strings, level)
+      case EOF() => ("" +: strings, level)
+      case _ => ("" +: strings, level)
+      }
+    }._1.reverse
 
     spaces.zip(strings).map(x => x._1 + x._2).mkString("")
   }
