@@ -9,7 +9,7 @@ object AbstractSyntaxTree {
   trait Statement extends Tree
   case class FunctionDef(name: String, args: Arguments, body: Seq[Statement], decorators: Seq[Expr], returns: Option[Expr]) extends Statement
   case class AsyncFunctionDef() extends Statement
-  case class ClassDef() extends Statement
+  case class ClassDef(name: String, bases: Seq[CallArg], body: Seq[Statement], decorators: Seq[Expr]) extends Statement
   case class Return(value: Option[Expr]) extends Statement
   case class Delete(targets: Seq[Expr]) extends Statement
   case class Assign(targets: Seq[Expr], value: Expr) extends Statement

@@ -15,6 +15,10 @@ nonlocal a, b, c
 assert x != None, msg
 return x
 
+class Test(object):
+    def __init__(self):
+        print(msg)
+
 def f(x, y, z=3) -> int:
     return 5
 

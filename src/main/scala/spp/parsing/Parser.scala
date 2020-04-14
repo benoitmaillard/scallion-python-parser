@@ -112,7 +112,7 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
     rep1sep(smallStmt, delU(";")) ~ newLine.skip
 
   lazy val compoundStmt: Syntax[Statement] = ifStmt | whileStmt | forStmt | tryStmt |
-    withStmt | funcDef /*| classDef | decorated | asyncStmt*/
+    withStmt | funcDef | classDef /* | decorated | asyncStmt*/
 
   def optSuite(keyword: String): Syntax[Seq[Statement]] =
     opt(kwU(keyword).skip ~ delU(":").skip ~ suiteStmt) map ({
@@ -239,7 +239,16 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
       case _ => Seq()
     })
 
-  lazy val classDef: Syntax[Statement] = ???
+  lazy val classDef: Syntax[Statement] =
+    kwU("class").skip ~ nameString ~ opt(delU("(").skip ~ argList ~ delU(")").skip) ~
+    delU(":").skip ~ suiteStmt map ({
+      case name ~ Some(bases) ~ body => ClassDef(name, bases, body, Seq())
+      case name ~ None ~ body => ClassDef(name, Seq(), body, Seq())
+    }, {
+      case ClassDef(name, Seq(), body, Seq()) => Seq(name ~ None ~ body)
+      case ClassDef(name, bases, body, Seq()) => Seq(name ~ Some(bases) ~ body)
+      case _ => Seq()
+    })
   lazy val decorated: Syntax[Statement] = ???
   lazy val asyncStmt: Syntax[Statement] = ???
 
