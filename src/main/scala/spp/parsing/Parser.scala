@@ -89,6 +89,13 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
     case _ => Seq()
   })
 
+  lazy val string: Syntax[Expr] = accept(StringClass) ({
+    case StringLiteral(prefix, value) => StringConstant(prefix, value)
+  }, {
+    case StringConstant(prefix, value) => Seq(StringLiteral(prefix, value))
+    case _ => Seq()
+  })
+
   lazy val module: Syntax[Module] = (many(stmt) ~ eof.skip) map ({ // TODO doc says there could be NEWLINE only ??
     case seq => Module(seq.reduceLeft(_ ++ _))
   }, {
@@ -537,7 +544,7 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
 
   // TODO comprehensions, ellipsis and strings
   lazy val atom: Syntax[Expr] =
-    recursive (name | number | atomPredef | atomParens | atomBrackets)
+    recursive (name | number | string | atomPredef | atomParens | atomBrackets)
 
   // parenthesized expression
   lazy val atomParens: Syntax[Expr] = // TODO centralize tuple creation

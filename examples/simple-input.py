@@ -4,6 +4,12 @@ from module.x import y
 from ..x import y
 from .... import *
 
+x = "test"
+x = """
+blabla
+balbal
+"""
+
 pass
 continue
 break

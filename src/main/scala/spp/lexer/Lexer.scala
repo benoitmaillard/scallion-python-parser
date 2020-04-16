@@ -72,7 +72,7 @@ object Lexer extends Lexers with CharRegExps {
       case ImaginaryLiteral(value) => ((value.toString + "j") +: strings, level)
       case FloatLiteral(value) => (value.toString +: strings, level)
       case IntLiteral(value) => (value.toString +: strings, level)
-      case StringLiteral(prefix, value) => ((prefix + "\"" + value + "\"") +: strings, level)
+      case StringLiteral(prefix, value) => ((prefix.getOrElse("") + "\"" + value + "\"") +: strings, level)
       case Keyword(name) => (name +: strings, level)
       case Indent() => ("" +: strings, level + 1)
       case Dedent() => ("" +: strings, level - 1)
