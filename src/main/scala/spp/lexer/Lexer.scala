@@ -75,7 +75,7 @@ object Lexer extends Lexers with CharRegExps {
       case StringLiteral(prefix, value) => ((prefix.getOrElse("") + "\"" + value + "\"") +: strings, level)
       case Keyword(name) => (name +: strings, level)
       case Indent() => ("" +: strings, level + 1)
-      case Dedent() => ("" +: strings, level - 1)
+      case Dedent() => ("\n" +: strings, level - 1)
       case Newline() => (("\n" + (" " * 4 * level)) +: strings, level)
       case Operator(op) => (op +: strings, level)
       case EOF() => ("" +: strings, level)
