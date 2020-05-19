@@ -5,17 +5,21 @@ import spp.structure.Tokens._
 import spp.lexer.TokensCleaner._
 
 import java.io.File
-import scallion.lexical._
-import scallion.input._
+import scala.io.Source
 import scala.annotation.tailrec
+
+import sl.Lexers
+import sl.Expressions._
+
+import scala.language.implicitConversions
 
 /**
   * Takes an list of files as input and produces the corresponding sequence
   * of tokens
   */
-object Lexer extends Lexers with CharRegExps {
+object Lexer extends Lexers {
   type Token = spp.structure.Tokens.Token
-  type Position = SourcePosition
+  type Value = (List[Int], Int)
 
   /**
     * Returns an iterator with the resulting tokens from the given files
@@ -24,14 +28,15 @@ object Lexer extends Lexers with CharRegExps {
     * @param sources list of file
     * @return resulting tokens
     */
-  def apply(ctx: Context, sources: File): Iterator[Token] = {
-    val tokens = lexer.spawn(
-      Source.fromFile(sources, SourcePositioner(sources))
-    ).toList
-
-    val result = TokensCleaner(tokens)(ctx).process()
-    result.iterator
+  def apply(path: String): Iterator[Token] = {
+    val file = new File(path)
+    val res = tokenize(path)
+    tokenize(path).get.map {
+      case Positioned(token, pos) => token.setPos(SourcePosition(file, pos.line, pos.column))
+    }.iterator
   }
+
+  def tokenize(path: String) = lexer.tokenizeFromFile(path)
 
   def unapply(tokens: Seq[Token]): String = {
     def reorder(tokens: Seq[Token], acc: Seq[Token]): Seq[Token] = tokens match {
@@ -102,138 +107,123 @@ object Lexer extends Lexers with CharRegExps {
     if (prefixLength > 0) StringLiteral(Some(prefix), value)
     else StringLiteral(None, value)
   }
+
+  def digits(str: String) = str.toSeq.filter(_ != '_').mkString
   
   def parseBigInt(seq: Seq[Char], base: Int): BigInt = {
-    // remove prefix (ex: 0b) and grouping characters
-    def clean(seq: Seq[Char]) = seq.drop(2).filter(_ != '_')
-    
-    clean(seq).reverse.zipWithIndex.foldLeft(BigInt(0)){
+    seq.filter(_ != '_').reverse.zipWithIndex.foldLeft(BigInt(0)){
       case (bg, (char, i)) =>
       bg + BigInt(base).pow(i) * Integer.parseInt(char.toString, base)
     }
   }
-  
-  def not(exluded: Char*) = elem(!exluded.contains(_))
 
-  def oneOfWords(words: String*) = {
-    words.map(word(_)).reduce(_ | _)
+  val space = unit("""\W""") |> {(value, str, pos) => (value, Nil)}
+
+  val keywords = oneOf(
+    "False", "None", "True", "and", "as", "assert", "async",
+    "await", "break", "class", "continue", "def", "del", "elif",
+    "else", "except", "finally", "for", "from", "global", "if",
+    "import", "in", "is", "lambda", "nonlocal", "not", "or",
+    "pass", "raise", "return", "try", "while", "with", "yield"
+  ) |> { (value, str, pos) => (value, List(Positioned(Keyword(str), pos))) }
+
+  val operators = oneOfEscaped(
+    "+", "-", "*", "**", "/", "//", "%", "@", "<<", ">>", "&",
+    "|", "^", "~", ":=", "<", ">", "<=", ">=", "==", "!="
+  ) |> { (value, str, pos) => (value, List(Positioned(Operator(str), pos))) }
+
+  val delimiters = oneOfEscaped(
+    "(", ")", "[", "]", "{", "}", ",", ":", ".", ";", "@", "=",
+    "->", "+=", "-=", "*=", "/=", "//", "%=", "@=", "&=", "|=",
+    "^=", ">>", "<<", "**="
+  ) |> { (value, str, pos) => (value, List(Positioned(Delimiter(str), pos))) }
+
+  val identifiers = unit("""[a-zA-Z_][a-zA-Z_\d]*""".r) |>
+    { (value, str, pos) => (value, List(Positioned(Identifier(str), pos))) }
+
+  // either only zeroes or 1-9 followed by 0-9 (with some _ in between)
+  val decimalIntLit = oneOfRe("""0(?:_?0)*""".r, """[1-9](?:_?\d)*""".r) |> 
+    { (value, str, pos) => (value, List(Positioned(IntLiteral(BigInt(digits(str))), pos))) }
+
+  val binaryIntLit = "0" ~/~ "[bB]" ~/~ """(?:_?[01])*""" |>
+    { case (value, _ ~ _ ~ digits, pos) => (value, List(Positioned(IntLiteral(parseBigInt(digits, 2)), pos))) }
+
+  val octIntLit = "0" ~/~ "[oO]" ~/~ """(?:_?[0-7])*""" |>
+    { case (value, _ ~ _ ~ digits, pos) => (value, List(Positioned(IntLiteral(parseBigInt(digits, 8)), pos))) }
+
+  val hexIntLit = "0" ~/~ "[xX]" ~/~ """(?:_?[0-9a-fA-F])*""" |>
+    { case (value, _ ~ _ ~ digits, pos) => (value, List(Positioned(IntLiteral(parseBigInt(digits, 16)), pos))) }
+
+  val digitPart = "[0-9]" ~ many("_?" ~ "[0-9]")
+  val fraction = """\.""" ~ digitPart 
+  val pointFloat = (opt(digitPart) ~ fraction) | (digitPart ~ """\.""")
+  val exponent = """[eE][\+\-]?"""
+  val exponentFloat = (digitPart | pointFloat) ~ exponent
+
+  val floatLiteral = (pointFloat | exponentFloat) |> {
+    case (value, floatStr, pos) => 
+      (value, List(Positioned(ImaginaryLiteral(digits(floatStr).toFloat), pos)))
+  }
+
+  val imaginaryLiteral = (pointFloat | exponentFloat | digitPart) ~/~ "[jJ]" |> {
+    case (value, floatStr ~ _, pos) =>
+      (value, List(Positioned(ImaginaryLiteral(digits(floatStr).toFloat), pos)))
+  }
+
+  val physicalNewLine = oneOf("\n", "\r\n", "\r")
+  val commentR = "#[^\n\r]*"
+
+  val indentation = many(" ") ~ opt(commentR) ~          // end of the current line
+    many(physicalNewLine ~ many("[ ]") ~ opt(commentR)) ~  // any number of empty lines
+    physicalNewLine ~/~ many(" ") |> {
+      case ((stack, pLevel), blank ~ indent, pos) =>
+        if (pLevel > 0) ((stack, pLevel), List())         // indentation is ignored inside enclosing delimiters
+        else if (pos.index == 0)
+          if (indent.length > 0) throw new LexerError("Indentation error", pos)
+          else ((stack, pLevel), List())
+        else stack match {
+          case current :: tl =>
+            if (indent.length > current)
+              ((indent.length :: stack, pLevel), List(Positioned(Newline(), pos), Positioned(Indent(), pos)))
+            else {
+              val updatedStack = stack.dropWhile(indent.length < _)
+              if (indent.length == updatedStack.head) {
+                val newLine = Positioned(Newline(), pos)
+                val dedents = List.fill(stack.length - updatedStack.length)(Positioned(Dedent(), pos))
+                ((updatedStack, pLevel), newLine :: dedents)
+              } else throw new LexerError("Indentation error", pos)
+            }
+        }
+
+    }
+  
+  val eof = many("[ \t]") ~ opt(commentR) ~          // end of the current line
+    many(physicalNewLine ~ many("[ \t]") ~ opt(commentR)) ~  // any number of empty lines
+    "$" |> {
+      case ((stack, pLevel), _, pos) =>
+        if (pos.index == 0) ((stack, pLevel), List(Positioned(EOF(), pos)))
+        else {
+          val newLine = List(Positioned(Newline(), pos))
+          val dedents = List.fill(stack.length - 1)(Positioned(Dedent(), pos))
+          val eof = List(Positioned(EOF(), pos))
+
+          ((List(0), pLevel), newLine ::: dedents ::: eof)
+        }
+      
+    }
+  
+
+  val comment = unit(commentR) |> {
+    (value, _, pos) => (value, List())
   }
   
-  // identifiers
-  val idStart = elem(_.isLetter) | elem('_')
-  val idContinue = idStart | elem(_.isDigit)
-
-  // string literals
-  val stringPrefix = oneOfWords(
-    "r", "u", "R", "U", "f", "F", "fr", "Fr", "fR", "FR",
-    "rf", "rF", "Rf", "RF"
+  val stdRuleSet = RuleSet(
+    eof, comment, keywords, operators, delimiters, identifiers, decimalIntLit, binaryIntLit, octIntLit, hexIntLit,
+    floatLiteral, imaginaryLiteral, indentation, space
   )
-  val escapedChar = elem('\\') ~ any // any should be "ascii"
-  val shortString =
-    elem('\'') ~ many(elem(!"\\\'\n".contains(_)) | escapedChar) ~ elem('\'') |
-    elem('\"') ~ many(elem(!"\\\"\n".contains(_)) | escapedChar) ~ elem('\"')
-  val longString =
-    word("\"" * 6) | word("'" * 6) |
-    /* the string literal stops as soon as we get 3 consecutive " or ', last character of a long string
-    * cannot be the same character as the delimiter */
-    word("\"" * 3) ~ many(not('\\') | escapedChar) ~ (not('\\', '"') | escapedChar) ~ word("\"" * 3) |
-    word("'" * 3) ~ many(not('\\') | escapedChar) ~ (not('\\', '\'') | escapedChar) ~ word("'" * 3)
+
+  lazy val lexer: Lexer = Lexer(LexerState(stdRuleSet, (List(0), 0)))
   
-  // floating point literals
-  val floatDigitPart = digit ~ many(opt(elem('_')) ~ digit)
-  val pointFloat = opt(floatDigitPart) ~ elem('.') ~ floatDigitPart | floatDigitPart ~ elem('.')
-  val exponentFloat = (floatDigitPart | pointFloat) ~ oneOf("eE") ~ opt(oneOf("+-")) ~ floatDigitPart
-  
-  // indentation
-  val physicalNewLine = oneOfWords("\n", "\r\n", "\r")
-  val noLineBreak = elem(c => c != '\n' && c != '\r')
-  val spaceChar = elem(_.isSpaceChar)
-
-  val comment = elem('#') ~ many(noLineBreak)
-  
-  val lexer: Lexer = Lexer(
-    // counting indentation spaces, used to generate INDENT/DEDENT/NEWLINE later
-    /* there can be any number of blank lines (only spaces or comments) before an
-    actual new logical line */
-    many(spaceChar) ~ opt(comment) ~
-    many(physicalNewLine ~ many(spaceChar) ~ opt(comment)) ~
-      physicalNewLine ~ many(whiteSpace) |>
-      {(s, range) =>
-        val nIndent = s.reverse.indexWhere(c => c == '\n' || c == '\r')
-        PhysicalIndent(nIndent).setPos(range._1)
-      },
-
-    // spaces that are not placed after a linebreak have no particular meaning
-    many(elem(_.isSpaceChar)) |> {(s, range) => Space().setPos(range._1)},
-
-    // explicit line joining with '\'
-    elem('\\') ~ many(noLineBreak) ~ physicalNewLine |>
-      {(s, range) =>
-        // we make sure that the line break is directly after the '\'
-        if (s(1) == '\r' || s(1) == '\n')
-          Space().setPos(range._1)
-        else
-          ErrorToken("unexpected character after line continuation character")
-      },
-
-    // comment
-    elem('#') ~ many(elem(_ != '\n')) |> {(s, range) => Comment().setPos(range._1)},
-
-    
-    
-    // keywords
-    oneOfWords(
-      "False", "None", "True", "and", "as", "assert", "async",
-      "await", "break", "class", "continue", "def", "del", "elif",
-      "else", "except", "finally", "for", "from", "global", "if",
-      "import", "in", "is", "lambda", "nonlocal", "not", "or",
-      "pass", "raise", "return", "try", "while", "with", "yield"
-    ) |>
-      {(s, range) => Keyword(s.mkString).setPos(range._1)},
-
-    // operators
-    oneOfWords(
-      "+", "-", "*", "**", "/", "//", "%", "@", "<<", ">>", "&",
-      "|", "^", "~", ":=", "<", ">", "<=", ">=", "==", "!="
-    ) |> {(s, range) => Operator(s.mkString).setPos(range._1)},
-
-    // delimiters
-    oneOfWords(
-      "(", ")", "[", "]", "{", "}", ",", ":", ".", ";", "@", "=",
-      "->", "+=", "-=", "*=", "/=", "//", "%=", "@=", "&=", "|=",
-      "^=", ">>", "<<", "**="
-    ) |> {(s, range) => Delimiter(s.mkString).setPos(range._1)},
-
-    // identifiers
-    idStart ~ many(idContinue) |>
-      {(s, range) => Identifier(s.mkString).setPos(range._1)},
-    
-    // string literals
-    opt(stringPrefix) ~ (shortString | longString) |>
-      {(s, range) => makeStringLiteral(s.mkString).setPos(range._1)},
-    
-    // integer literals (decimal, binary, octal, hex)
-    nonZero ~ many(opt(elem('_')) ~ digit) | many1(elem('0')) ~ many(opt(elem('_')) ~ elem('0')) |>
-      {(s, range) => IntLiteral(BigInt(s.filter(_ != '_').mkString)).setPos(range._1)},
-    elem('0') ~ oneOf("bB") ~ many1(opt(elem('_')) ~ oneOf("01")) |>
-      {(s, range) => IntLiteral(parseBigInt(s, 2)).setPos(range._1)},
-    elem('0') ~ oneOf("oO") ~ many1(opt(elem('_')) ~ elem(c => c >= '0' && c <= '7')) |>
-      {(s, range) => IntLiteral(parseBigInt(s, 8)).setPos(range._1)},
-    elem('0') ~ oneOf("xX") ~ many1(opt(elem('_')) ~ hex) |>
-      {(s, range) => IntLiteral(parseBigInt(s, 16)).setPos(range._1)},
-    
-    // floating point literals
-    pointFloat | exponentFloat |>
-      {(s, range) => FloatLiteral(s.filter(_ != '_').mkString.toFloat)},
-
-    // imaginary literals
-    (pointFloat | exponentFloat | floatDigitPart) ~ oneOf("jJ") |>
-      {(s, range) => ImaginaryLiteral(s.filter(_ != '_').mkString.dropRight(1).toFloat)},
-  ) onError {
-    (cs, range) => ErrorToken(cs.mkString).setPos(range._1)
-  } onEnd {
-    pos => EOF().setPos(pos)
-  }
 }
 
 /**
