@@ -12,7 +12,7 @@ class LexerTests extends OutputComparisonSpec {
     
     val inputExtension: String = ".py"
     val outputExtension: String = ".txt"
-    val pipeline = Lexer andThen TokensToString
+    val pipeline = path => TokensToString(Lexer(path))
     
     "lexer" should "tokenize basic input file correctly" in {
         outputMatch("basic-test")
@@ -25,11 +25,15 @@ class LexerTests extends OutputComparisonSpec {
     it should "produce only EOF token for empty file" in {
         outputMatch("empty")
     }
+
+    it should "tokenize a single-line input file correctly" in {
+        outputMatch("single-line")
+    }
     
 }
 
-object TokensToString extends Pipeline[Iterator[Token], String] {
-    def run(ctx: Context)(tokens: Iterator[Token]) = {
+object TokensToString {
+    def apply(tokens: Iterator[Token]) = {
         tokens.map(_.toString()).reduce(_ ++ _)
     }
 }
