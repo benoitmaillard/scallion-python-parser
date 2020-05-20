@@ -133,10 +133,15 @@ object Lexer extends Lexers {
   ) |> { (value, str, pos) => (value, List(Positioned(Operator(str), pos))) }
 
   val delimiters = oneOfEscaped(
-    "(", ")", "[", "]", "{", "}", ",", ":", ".", ";", "@", "=",
+    ",", ":", ".", ";", "@", "=",
     "->", "+=", "-=", "*=", "/=", "//", "%=", "@=", "&=", "|=",
     "^=", ">>", "<<", "**="
   ) |> { (value, str, pos) => (value, List(Positioned(Delimiter(str), pos))) }
+
+  val openingDelimiters = oneOfEscaped("(", "[", "{") |>
+    { case ((stack, pLevel), str, pos) => ((stack, pLevel + 1), List(Positioned(Delimiter(str), pos))) }
+  val closingDelimiters = oneOfEscaped(")", "]", "}") |>
+    { case ((stack, pLevel), str, pos) => ((stack, pLevel - 1), List(Positioned(Delimiter(str), pos))) }
 
   val identifiers = unit("""[a-zA-Z_][a-zA-Z_\d]*""".r) |>
     { (value, str, pos) => (value, List(Positioned(Identifier(str), pos))) }
@@ -206,8 +211,9 @@ object Lexer extends Lexers {
   val comment = unit(commentR) |> { (value, _, pos) => (value, List()) }
   
   val stdRuleSet = RuleSet(
-    eof, comment, keywords, operators, delimiters, identifiers, decimalIntLit, binaryIntLit, octIntLit, hexIntLit,
-    floatLiteral, imaginaryLiteral, indentation, space
+    eof, comment, keywords, operators, delimiters, openingDelimiters, closingDelimiters, identifiers,
+    decimalIntLit, binaryIntLit, octIntLit, hexIntLit, floatLiteral, imaginaryLiteral, indentation,
+    space
   ) withFinalAction {
     case ((stack, pLevel), pos) =>
       if (pos.index == 0) List(Positioned(EOF(), pos)) // TODO condition should be (nTokens == 0)
