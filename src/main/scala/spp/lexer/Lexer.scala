@@ -169,12 +169,12 @@ object Lexer extends Lexers {
 
   val floatLiteral = ((pointFloat ~ opt(exponent)) | (digitPart ~ exponent)) |> {
     case (value, floatStr, pos) => 
-      (value, List(Positioned(FloatLiteral(digits(floatStr).toFloat), pos)))
+      (value, List(Positioned(FloatLiteral(digits(floatStr).toDouble), pos)))
   }
 
   val imaginaryLiteral = ((pointFloat ~ opt(exponent)) | (digitPart ~ exponent) | digitPart) ~/~ "[jJ]" |> {
     case (value, floatStr ~ _, pos) =>
-      (value, List(Positioned(ImaginaryLiteral(digits(floatStr).toFloat), pos)))
+      (value, List(Positioned(ImaginaryLiteral(digits(floatStr).toDouble), pos)))
   }
 
   val physicalNewLine = oneOf("\n", "\r\n", "\r")

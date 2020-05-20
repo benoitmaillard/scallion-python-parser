@@ -23,8 +23,8 @@ object Tokens {
   final case class BytesLiteral(value: String) extends Token
   
   final case class IntLiteral(value: BigInt) extends Token
-  final case class FloatLiteral(value: Float) extends Token
-  final case class ImaginaryLiteral(value: Float) extends Token
+  final case class FloatLiteral(value: Double) extends Token
+  final case class ImaginaryLiteral(value: Double) extends Token
   
   final case class Operator(op: String) extends Token
   final case class Delimiter(del: String) extends Token

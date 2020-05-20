@@ -56,8 +56,8 @@ object AbstractSyntaxTree {
 
   trait Constant extends Expr
   case class IntConstant(value: BigInt) extends Constant
-  case class FloatConstant(value: Float) extends Constant
-  case class ImaginaryConstant(value: Float) extends Constant
+  case class FloatConstant(value: Double) extends Constant
+  case class ImaginaryConstant(value: Double) extends Constant
   case class StringConstant(prefix: Option[String], value: String) extends Constant
 
   case class Attribute(value: Expr, attr: String) extends Expr
