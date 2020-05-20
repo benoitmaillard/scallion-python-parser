@@ -197,30 +197,28 @@ object Lexer extends Lexers {
 
     }
   
-  val eof = many("[ \t]") ~ opt(commentR) ~          // end of the current line
-    many(physicalNewLine ~ many("[ \t]") ~ opt(commentR)) ~  // any number of empty lines
-    "$" |> {
-      case ((stack, pLevel), _, pos) =>
-        if (pos.index == 0) ((stack, pLevel), List(Positioned(EOF(), pos)))
-        else {
-          val newLine = List(Positioned(Newline(), pos))
-          val dedents = List.fill(stack.length - 1)(Positioned(Dedent(), pos))
-          val eof = List(Positioned(EOF(), pos))
-
-          ((List(0), pLevel), newLine ::: dedents ::: eof)
-        }
-      
-    }
+  // all blanks from the end of the last statement to the end of the file are ignored
+  val eof = many("[ \t]") ~ opt(commentR) ~ // end of the current line
+    many(physicalNewLine ~ many("[ \t]") ~ opt(commentR)) ~ // any number of empty lines
+    "$" |> { (value, _, _) => (value, List()) }
   
 
-  val comment = unit(commentR) |> {
-    (value, _, pos) => (value, List())
-  }
+  val comment = unit(commentR) |> { (value, _, pos) => (value, List()) }
   
   val stdRuleSet = RuleSet(
     eof, comment, keywords, operators, delimiters, identifiers, decimalIntLit, binaryIntLit, octIntLit, hexIntLit,
     floatLiteral, imaginaryLiteral, indentation, space
-  )
+  ) withFinalAction {
+    case ((stack, pLevel), pos) =>
+      if (pos.index == 0) List(Positioned(EOF(), pos)) // TODO condition should be (nTokens == 0)
+      else {
+        val newLine = List(Positioned(Newline(), pos))
+        val dedents = List.fill(stack.length - 1)(Positioned(Dedent(), pos))
+        val eof = List(Positioned(EOF(), pos))
+
+        newLine ::: dedents ::: eof
+      }
+  }
 
   lazy val lexer: Lexer = Lexer(LexerState(stdRuleSet, (List(0), 0)))
   
