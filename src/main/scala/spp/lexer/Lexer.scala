@@ -165,8 +165,6 @@ object Lexer extends Lexers {
   val exponent = """[eE][\+\-]?""" ~ digitPart
   val exponentFloat = (digitPart | pointFloat) ~ exponent
 
-  println((pointFloat | exponentFloat).build())
-
   val floatLiteral = ((pointFloat ~ opt(exponent)) | (digitPart ~ exponent)) |> {
     case (value, floatStr, pos) => 
       (value, List(Positioned(FloatLiteral(digits(floatStr).toDouble), pos)))
