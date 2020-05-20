@@ -207,11 +207,9 @@ object Lexer extends Lexers {
     many(physicalNewLine ~ many("[ \t]") ~ opt(commentR)) ~ // any number of empty lines
     "$" |> { (value, _, _) => (value, List()) }
   
-
-  val comment = unit(commentR) |> { (value, _, pos) => (value, List()) }
   
   val stdRuleSet = RuleSet(
-    eof, comment, keywords, operators, delimiters, openingDelimiters, closingDelimiters, identifiers,
+    eof, keywords, operators, delimiters, openingDelimiters, closingDelimiters, identifiers,
     decimalIntLit, binaryIntLit, octIntLit, hexIntLit, floatLiteral, imaginaryLiteral, indentation,
     space
   ) withFinalAction {
