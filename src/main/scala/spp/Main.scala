@@ -9,16 +9,9 @@ object Main {
     val context = Context(new Reporter, args.toList)
 
     try {
-      if (false) {
-        context.reporter.fatal("No source files provided")
-      } else {
-        val file = new File(context.files.head)
-        if (file.exists()) {
-          val tokens = Lexer(context, file)
-          val tree = Parser(context, tokens)
-        }
-        else context.reporter.fatal(s"File ${file.getName()} not found")
-      }
+      
+      val tokens = Lexer(context.files.head)
+      val tree = Parser(context, tokens)        
       
       context.reporter.terminateIfErrors()
     } catch {
