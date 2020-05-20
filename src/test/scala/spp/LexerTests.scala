@@ -49,6 +49,10 @@ class LexerTests extends OutputComparisonSpec {
     it should "handle explicit line joinings correctly" in {
         outputMatch("explicit-line-joining")
     }
+
+    it should "tokenize operators and delimiters correctly" in {
+        outputMatch("operators-delimiters")
+    }
 }
 
 object TokensToString {
