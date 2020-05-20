@@ -1,1 +1,1 @@
-print(1 + 2 * 4); x = 2; 3 if (x < 2) else 5; lambda x: x + 1 
+print(1 + 2 * 4); x = 2; 3 if (x < 2) else 5; lambda x: x + 1

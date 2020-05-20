@@ -29,6 +29,14 @@ class LexerTests extends OutputComparisonSpec {
     it should "tokenize a single-line input file correctly" in {
         outputMatch("single-line")
     }
+
+    it should "fail with an indented first statement" in {
+        assertThrows[Error](output("unexpected-indent-1"))
+    }
+
+    it should "fail with inconsistent indentation" in {
+        assertThrows[Error](output("unexpected-indent-2"))
+    }
     
 }
 
