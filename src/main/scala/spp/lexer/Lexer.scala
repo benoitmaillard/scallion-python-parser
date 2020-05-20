@@ -162,15 +162,17 @@ object Lexer extends Lexers {
   val digitPart = "[0-9]" ~ many("_?" ~ "[0-9]")
   val fraction = """\.""" ~ digitPart 
   val pointFloat = (opt(digitPart) ~ fraction) | (digitPart ~ """\.""")
-  val exponent = """[eE][\+\-]?"""
+  val exponent = """[eE][\+\-]?""" ~ digitPart
   val exponentFloat = (digitPart | pointFloat) ~ exponent
 
-  val floatLiteral = (pointFloat | exponentFloat) |> {
+  println((pointFloat | exponentFloat).build())
+
+  val floatLiteral = ((pointFloat ~ opt(exponent)) | (digitPart ~ exponent)) |> {
     case (value, floatStr, pos) => 
-      (value, List(Positioned(ImaginaryLiteral(digits(floatStr).toFloat), pos)))
+      (value, List(Positioned(FloatLiteral(digits(floatStr).toFloat), pos)))
   }
 
-  val imaginaryLiteral = (pointFloat | exponentFloat | digitPart) ~/~ "[jJ]" |> {
+  val imaginaryLiteral = ((pointFloat ~ opt(exponent)) | (digitPart ~ exponent) | digitPart) ~/~ "[jJ]" |> {
     case (value, floatStr ~ _, pos) =>
       (value, List(Positioned(ImaginaryLiteral(digits(floatStr).toFloat), pos)))
   }
@@ -209,8 +211,8 @@ object Lexer extends Lexers {
   
   
   val stdRuleSet = RuleSet(
-    eof, keywords, operators, delimiters, openingDelimiters, closingDelimiters, identifiers,
-    decimalIntLit, binaryIntLit, octIntLit, hexIntLit, floatLiteral, imaginaryLiteral, indentation,
+    eof, binaryIntLit, octIntLit, hexIntLit, imaginaryLiteral, floatLiteral, decimalIntLit, keywords, operators, delimiters, openingDelimiters, closingDelimiters, identifiers,
+    indentation,
     space
   ) withFinalAction {
     case ((stack, pLevel), pos) =>
