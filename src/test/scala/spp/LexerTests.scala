@@ -46,6 +46,9 @@ class LexerTests extends OutputComparisonSpec {
         outputMatch("literals")
     }
     
+    it should "handle explicit line joinings correctly" in {
+        outputMatch("explicit-line-joining")
+    }
 }
 
 object TokensToString {

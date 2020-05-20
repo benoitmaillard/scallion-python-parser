@@ -180,6 +180,8 @@ object Lexer extends Lexers {
   val physicalNewLine = oneOf("\n", "\r\n", "\r")
   val commentR = "#[^\n\r]*"
 
+  val explicitLineJoin = escape("\\") ~ "\n" |> { (value, _, _) => (value, List()) }
+
   val indentation = many(" ") ~ opt(commentR) ~          // end of the current line
     many(physicalNewLine ~ many("[ ]") ~ opt(commentR)) ~  // any number of empty lines
     physicalNewLine ~/~ many(" ") |> {
@@ -211,7 +213,7 @@ object Lexer extends Lexers {
   
   
   val stdRuleSet = RuleSet(
-    eof, binaryIntLit, octIntLit, hexIntLit, imaginaryLiteral, floatLiteral, decimalIntLit, keywords, operators, delimiters, openingDelimiters, closingDelimiters, identifiers,
+    eof, explicitLineJoin, binaryIntLit, octIntLit, hexIntLit, imaginaryLiteral, floatLiteral, decimalIntLit, keywords, operators, delimiters, openingDelimiters, closingDelimiters, identifiers,
     indentation,
     space
   ) withFinalAction {
