@@ -37,6 +37,14 @@ class LexerTests extends OutputComparisonSpec {
     it should "fail with inconsistent indentation" in {
         assertThrows[Error](output("unexpected-indent-2"))
     }
+
+    it should "handle nested enclosing correctly" in {
+        outputMatch("nested-enclosing")
+    }
+
+    it should "tokenize literals correctly" in {
+        outputMatch("literals")
+    }
     
 }
 
