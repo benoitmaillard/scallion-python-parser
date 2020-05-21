@@ -31,11 +31,11 @@ class LexerTests extends OutputComparisonSpec {
     }
 
     it should "fail with an indented first statement" in {
-        assertThrows[Error](output("unexpected-indent-1"))
+        outputContains("unexpected-indent-1", "Error")
     }
 
     it should "fail with inconsistent indentation" in {
-        assertThrows[Error](output("unexpected-indent-2"))
+        outputContains("unexpected-indent-2", "Error")
     }
 
     it should "handle nested enclosing correctly" in {
@@ -57,6 +57,6 @@ class LexerTests extends OutputComparisonSpec {
 
 object TokensToString {
     def apply(tokens: Iterator[Token]) = {
-        tokens.map(_.toString()).reduce(_ ++ _)
+        tokens.map(_.toString()).reduce(_ ++ "\n" ++ _)
     }
 }

@@ -21,12 +21,18 @@ abstract class OutputComparisonSpec extends FlatSpec {
     assertResult(expected)(actual)
   }
 
+  def outputContains(testName: String, token: String): Assertion = {
+    val out = output(testName)
+    val re = ("(^|\n)" + token).r
+    assert(re.findFirstIn(out).isDefined)
+  }
+
   def output(testName: String): String = {
     val inputFileName = rootInput + testName + inputExtension
     pipeline(inputFileName)
   }
 
   def input(testName: String): String =
-    Source.fromFile(rootOutput + testName + outputExtension)
-      .getLines().mkString
+    Source.fromFile(rootOutput + testName + outputExtension).getLines.filter(!_.matches("""\W*"""))
+      .mkString("\n")
 }

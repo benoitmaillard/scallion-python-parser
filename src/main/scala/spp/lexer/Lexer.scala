@@ -186,7 +186,7 @@ object Lexer extends Lexers {
       case ((stack, pLevel), blank ~ indent, pos) =>
         if (pLevel > 0) ((stack, pLevel), List())         // indentation is ignored inside enclosing delimiters
         else if (pos.index == 0)
-          if (indent.length > 0) throw new LexerError("Indentation error", pos)
+          if (indent.length > 0) ((stack, pLevel), List(Positioned(ErrorToken("Indentation error"), pos)))
           else ((stack, pLevel), List())
         else stack match {
           case current :: tl =>
@@ -198,7 +198,7 @@ object Lexer extends Lexers {
                 val newLine = Positioned(Newline(), pos)
                 val dedents = List.fill(stack.length - updatedStack.length)(Positioned(Dedent(), pos))
                 ((updatedStack, pLevel), newLine :: dedents)
-              } else throw new LexerError("Indentation error", pos)
+              } else ((stack, pLevel), List(Positioned(ErrorToken("Indentation error"), pos)))
             }
         }
 
@@ -226,7 +226,7 @@ object Lexer extends Lexers {
       }
   }
 
-  lazy val lexer: Lexer = Lexer(LexerState(stdRuleSet, (List(0), 0)))
+  lazy val lexer: Lexer = Lexer(LexerState(stdRuleSet, (List(0), 0)), ErrorToken("Unexpected token"))
   
 }
 
