@@ -2,7 +2,6 @@ package spp.lexer
 
 import spp.utils._
 import spp.structure.Tokens._
-import spp.lexer.TokensCleaner._
 
 import java.io.File
 import scala.io.Source
@@ -71,13 +70,13 @@ object Lexer extends Lexers {
 
     val strings = reordred.foldLeft((Seq.empty[String], 0)){
       case ((strings, level), current) => current match {
-      case BytesLiteral(value) => (("b\"" ++ value ++ "\"") +: strings, level)
+      case BytesLiteral(prefix, delimiter, value) => (("b\"" ++ value ++ "\"") +: strings, level)
       case Delimiter(del) => (del +: strings, level)
       case Identifier(name) => (name +: strings, level)
       case ImaginaryLiteral(value) => ((value.toString + "j") +: strings, level)
       case FloatLiteral(value) => (value.toString +: strings, level)
       case IntLiteral(value) => (value.toString +: strings, level)
-      case StringLiteral(prefix, value) => ((prefix.getOrElse("") + "\"" + value + "\"") +: strings, level)
+      case StringLiteral(prefix, delimiter, value) => ((prefix + "\"" + value + "\"") +: strings, level)
       case Keyword(name) => (name +: strings, level)
       case Indent() => ("" +: strings, level + 1)
       case Dedent() => ("\n" +: strings, level - 1)

@@ -18,9 +18,9 @@ object Tokens {
   final case class Keyword(name: String) extends Token
   final case class Identifier(name: String) extends Token
   
-  final case class StringLiteral(prefix: Option[String], value: String) extends Token
+  final case class StringLiteral(prefix: String, delimiter: String, value: String) extends Token
   // final case class FormatStringLiteral(value: String) extends Token
-  final case class BytesLiteral(value: String) extends Token
+  final case class BytesLiteral(prefix: String, delimiter: String, value: String) extends Token
   
   final case class IntLiteral(value: BigInt) extends Token
   final case class FloatLiteral(value: Double) extends Token
