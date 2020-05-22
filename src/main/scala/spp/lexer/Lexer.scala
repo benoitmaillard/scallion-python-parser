@@ -90,23 +90,6 @@ object Lexer extends Lexers {
 
     spaces.zip(strings).map(x => x._1 + x._2).mkString("")
   }
-  
-  def removeDelimiters(str: String, delimiter: Char) = {
-    val nDelimiters = str.indexWhere(_ != delimiter)
-    str.drop(nDelimiters).dropRight(nDelimiters)
-  }
-  
-  // Splits a raw literal into prefix and value, removes delimiters
-  def makeStringLiteral(input: String): StringLiteral = {
-    val delimiter = input.find(c => c == '"' || c == '\'').get
-    val prefixLength = input.indexOf(delimiter)
-    
-    val (prefix, rightPart) = input.splitAt(prefixLength)
-    val value = removeDelimiters(rightPart, delimiter)
-    
-    if (prefixLength > 0) StringLiteral(Some(prefix), value)
-    else StringLiteral(None, value)
-  }
 
   def digits(str: String) = str.toSeq.filter(_ != '_').mkString
   
