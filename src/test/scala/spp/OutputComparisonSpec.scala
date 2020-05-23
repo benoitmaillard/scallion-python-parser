@@ -33,6 +33,6 @@ abstract class OutputComparisonSpec extends FlatSpec {
   }
 
   def input(testName: String): String =
-    Source.fromFile(rootOutput + testName + outputExtension).getLines.filter(!_.matches("""\W*"""))
+    Source.fromFile(rootOutput + testName + outputExtension).getLines.filter(!_.matches("""\s*"""))
       .mkString("\n")
 }
