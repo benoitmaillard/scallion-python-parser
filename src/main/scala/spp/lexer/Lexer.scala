@@ -99,7 +99,7 @@ object Lexer extends Lexers {
     }
   }
 
-  val space = unit("""\W""") |> {(value, str, pos) => (value, Nil)}
+  val space = unit("""\s""") |> {(value, str, pos) => (value, Nil)}
 
   val keywords = oneOf(
     "False", "None", "True", "and", "as", "assert", "async",
@@ -157,6 +157,43 @@ object Lexer extends Lexers {
       (value, List(Positioned(ImaginaryLiteral(digits(floatStr).toDouble), pos)))
   }
 
+  val stringPrefix = oneOf("RF", "Rf", "rF", "rf", "FR", "fR", "Fr", "fr", "F", "f", "U", "R", "u", "r", "")
+  val bytesPrefix = oneOf("RB", "Rb", "rB", "rb", "BR", "bR", "Br", "br", "B", "b")
+
+  def longString(delimiter: Char, isBytes: Boolean = false) = {
+    val delimiterFull = delimiter.toString * 3
+
+    val (prefix, isValidChar) = if (isBytes) (bytesPrefix, """[\x00-\x7F]""")  else (stringPrefix, """\p{all}""")
+
+    val re = prefix ~/~ delimiterFull ~/~
+      many(raw"""[^\\$delimiter]""" | raw"""\\$isValidChar""" | raw"$delimiter(?!$delimiter$delimiter)") ~/~
+      delimiterFull
+
+    re |> {
+      case (value, pre ~ _ ~ content ~ _, pos) => (value, List(Positioned(if (isBytes) BytesLiteral(pre, delimiterFull, content) else StringLiteral(pre, delimiterFull, content), pos)))
+    }
+  }
+
+  def shortString(delimiter: Char, isBytes: Boolean = false) = {
+    val (prefix, isValidChar) = if (isBytes) (bytesPrefix, """[\x00-\x7F]""")  else (stringPrefix, """\p{all}""")
+
+    val re = prefix ~/~ delimiter.toString ~/~
+      many(raw"""[^\\${'\n'}$delimiter]""" | raw"""\\$isValidChar""") ~/~
+      delimiter.toString
+    re |> {
+      case (value, pre ~ _ ~ content ~ _, pos) => (value, List(Positioned(if (isBytes) BytesLiteral(pre, delimiter.toString, content) else StringLiteral(pre, delimiter.toString, content), pos)))
+    }
+  }
+
+  val longStringDq = longString('"')
+  val longStringSq = longString('\'')
+  val longBytesDq = longString('"', true)
+  val longBytesSq = longString('"', true)
+  val shortStringDq = shortString('"')
+  val shortStringSq = shortString('\'')
+  val shortBytesDq = shortString('"', true)
+  val shortBytesSq = shortString('"', true)
+
   val physicalNewLine = oneOf("\n", "\r\n", "\r")
   val commentR = "#[^\n\r]*"
 
@@ -193,7 +230,7 @@ object Lexer extends Lexers {
   
   
   val stdRuleSet = RuleSet(
-    eof, explicitLineJoin, binaryIntLit, octIntLit, hexIntLit, imaginaryLiteral, floatLiteral, decimalIntLit, keywords, operators, delimiters, openingDelimiters, closingDelimiters, identifiers,
+    eof, longStringDq, longStringSq, longBytesDq, longBytesSq, shortStringDq, shortStringSq, shortBytesDq, shortBytesSq, explicitLineJoin, binaryIntLit, octIntLit, hexIntLit, imaginaryLiteral, floatLiteral, decimalIntLit, keywords, operators, delimiters, openingDelimiters, closingDelimiters, identifiers,
     indentation,
     space
   ) withFinalAction {
