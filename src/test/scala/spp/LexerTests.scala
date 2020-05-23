@@ -42,8 +42,12 @@ class LexerTests extends OutputComparisonSpec {
         outputMatch("nested-enclosing")
     }
 
-    it should "tokenize literals correctly" in {
+    it should "tokenize numeric literals correctly" in {
         outputMatch("literals")
+    }
+
+    it should "tokenize string and bytes literals correctly" in {
+        outputMatch("string-literals")
     }
     
     it should "handle explicit line joinings correctly" in {
