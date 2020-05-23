@@ -1,33 +1,38 @@
 package spp
 
 import org.scalatest._
-import spp.utils._
-import spp.utils.Pipeline
 import java.io.File
 import scala.io.Source
 
 abstract class OutputComparisonSpec extends FlatSpec {
   val inputExtension: String
   val outputExtension: String
-  val pipeline: Pipeline[File, String]
+  val pipeline: String => String
 
   val rootDir = "src/test/resources/"
   val rootInput = rootDir + "input/"
   val rootOutput = rootDir + "output/"
 
   def outputMatch(testName: String): Assertion = {
-    val expected = Source.fromFile(
-        new File(rootOutput + testName + outputExtension)
-    ).getLines().mkString//.filter(!_.isWhitespace)
+    val expected = input(testName)
 
-    val inputFileName = rootInput + testName + inputExtension
-
-    val context = Context(
-        new utils.Reporter, List(inputFileName)
-    )
-    val actual: String = pipeline.run(context)(new File(inputFileName))
-      //.filter(!_.isWhitespace)
+    val actual = output(testName)
 
     assertResult(expected)(actual)
   }
+
+  def outputContains(testName: String, token: String): Assertion = {
+    val out = output(testName)
+    val re = ("(^|\n)" + token).r
+    assert(re.findFirstIn(out).isDefined)
+  }
+
+  def output(testName: String): String = {
+    val inputFileName = rootInput + testName + inputExtension
+    pipeline(inputFileName)
+  }
+
+  def input(testName: String): String =
+    Source.fromFile(rootOutput + testName + outputExtension).getLines.filter(!_.matches("""\s*"""))
+      .mkString("\n")
 }

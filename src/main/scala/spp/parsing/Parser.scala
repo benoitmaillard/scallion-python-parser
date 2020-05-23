@@ -90,9 +90,9 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
   })
 
   lazy val string: Syntax[Expr] = accept(StringClass) ({
-    case StringLiteral(prefix, value) => StringConstant(prefix, value)
+    case StringLiteral(prefix, delimiter, value) => StringConstant(Some(prefix), value)
   }, {
-    case StringConstant(prefix, value) => Seq(StringLiteral(prefix, value))
+    case StringConstant(prefix, value) => Seq(StringLiteral(prefix.get, "'", value))
     case _ => Seq()
   })
 
