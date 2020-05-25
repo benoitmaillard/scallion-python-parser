@@ -170,7 +170,7 @@ object Lexer extends Lexers {
       delimiterFull
 
     re |> {
-      case (value, pre ~ _ ~ content ~ _, pos) => (value, List(Positioned(if (isBytes) BytesLiteral(pre, delimiterFull, content) else StringLiteral(pre, delimiterFull, content), pos)))
+      case (value, pre ~ _ ~ content ~ _, pos) => (value, List(Positioned(StringLiteral(pre, delimiterFull, content), pos)))
     }
   }
 
@@ -181,7 +181,7 @@ object Lexer extends Lexers {
       many(raw"""[^\\${'\n'}$delimiter]""" | raw"""\\$isValidChar""") ~/~
       delimiter.toString
     re |> {
-      case (value, pre ~ _ ~ content ~ _, pos) => (value, List(Positioned(if (isBytes) BytesLiteral(pre, delimiter.toString, content) else StringLiteral(pre, delimiter.toString, content), pos)))
+      case (value, pre ~ _ ~ content ~ _, pos) => (value, List(Positioned(StringLiteral(pre, delimiter.toString, content), pos)))
     }
   }
 
