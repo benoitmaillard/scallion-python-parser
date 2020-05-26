@@ -8,17 +8,12 @@ import spp.lexer.Lexer
 object StringLiteralParser {
   def parse(sl: StringLiteral): Expr = {
     val prefix = sl.prefix.toLowerCase
-    if (prefix.contains('f')) parseFormattedStr(sl)
-    else if (prefix.contains('b')) BytesConstant(decode(sl).get)
-    else StringConstant(decode(sl).get)
+    if (prefix.contains('f')) JoinedStr(parseFormattedStr(sl.value))
+    else if (prefix.contains('b')) BytesConstant(decode(prefix, sl.value).get)
+    else StringConstant(decode(prefix, sl.value).get)
   }
 
-  def parseFormattedStr(sl: StringLiteral): JoinedStr = {
-    val tokens = Lexer.applyString(sl.value)
+  def parseFormattedStr(str: String): Seq[Expr] = ???
 
-    //tokens.foreach(t => println(t.position.col))
-    
-    val tree = Parser.parseString(tokens, sl)
-    tree
-  }
+  def extractExprPart(str: String): String = ???
 }
