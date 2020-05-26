@@ -132,10 +132,7 @@ object StringDecoder extends Lexers {
     else {
       val lexer = 
         if (prefix.contains("b")) bytesLexer
-        else if (prefix.contains("f")) {
-          println("formatin string !!")
-          formatLexer
-        } 
+        else if (prefix.contains("f")) formatLexer
         else stringLexer
   
       val tokens = lexer.tokenizeFromString(value).get.map(_.value)
