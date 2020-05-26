@@ -754,6 +754,68 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
 
   val parser = LL1(module)
   val printer = PrettyPrinter(module)
+
+  def parseString(tokens: Iterator[Token], sl: StringLiteral): JoinedStr = {
+    def asPos[A](s: Syntax[Token]) = s.map({
+      case t => t.position
+    })
+
+    // gets the start of some irrelevant content (string content)
+    lazy val unrelevant: Syntax[Int] = many1(elem(NameClass)) map ({
+      case t => t.head.position.col
+    })
+
+    lazy val fString: Syntax[JoinedStr] = many(unrelevant ~ elem(DelimiterClass("{")) ~ replacementField ~ elem(DelimiterClass("}"))) ~ eof.skip map ({
+      case s => JoinedStr(s.foldLeft(Seq[Expr]()) {
+        case (acc, startPos ~ ob ~ replace ~ cb) => {
+          val str = sl.value.substring(startPos, ob.position.col)
+          val strConstant = StringLiteralParser.parse(StringLiteral("", sl.delimiter, str))
+          val formattedValue = replace
+          acc ++ Seq(strConstant, formattedValue)
+        }
+      })
+    })
+
+    lazy val replacementField: Syntax[FormattedValue] =
+      fExpression ~ opt(opU("!").skip ~ conversion) ~ opt(delU(":").skip ~ formatSpec) map ({
+        case e ~ optConv ~ optFormat => FormattedValue(e, optConv, optFormat)
+      })
+    // NOTE in docs.python.org `conditional_expression` is actually `test`
+    lazy val fExpression: Syntax[Expr] = test // TODO this is incomplete
+    lazy val conversion: Syntax[Char] = nameString map ({
+      case n => n.head // TODO this is really yolo
+    })
+
+    // either a StringConstant or a JoinedStr
+    lazy val formatSpec: Syntax[JoinedStr] = nameString map ({
+      n => JoinedStr(Seq(StringConstant(n)))
+    })
+
+    val stringParser = LL1(fString)
+
+    if (!fString.isLL1) {
+      debug(fString)
+      
+      throw new Error("Not LL1 !!!")
+    } else {
+      println("Syntax is LL1!")
+    }
+    
+    //tokens.foreach(println(_))
+    val res = stringParser(tokens) match {
+      case LL1.Parsed(value, rest) => value
+      case LL1.UnexpectedToken(token, rest) => {
+        println(token)
+        println(token.position)
+        throw new Error("Invalid token !!!")
+      }
+      case LL1.UnexpectedEnd(rest) => {
+        println(f"Rest : $rest")
+        throw new Error("Unexpected end !!!!")
+      } 
+    }
+    res
+  }
   
   def apply(ctx: Context, tokens: Iterator[Token]): Module = {
     if (!module.isLL1) {

@@ -29,13 +29,26 @@ object Lexer extends Lexers {
     */
   def apply(path: String): Iterator[Token] = {
     val file = new File(path)
-    val res = tokenize(path)
-    tokenize(path).get.map {
+    tokenizeFromFile(path).get.map {
       case Positioned(token, pos) => token.setPos(SourcePosition(file, pos.line, pos.column))
     }.iterator
   }
 
-  def tokenize(path: String) = lexer.tokenizeFromFile(path)
+  def tokenizeFromFile(path: String) = lexer.tokenizeFromFile(path)
+
+
+  def applyString(input: String): Iterator[Token] = {
+    val tokens = tokenizeFromString(input).get.filter{
+      case Positioned(Newline(), _) => false
+      case _ => true
+    }
+    
+    tokens.map {
+      case Positioned(token, pos) => token.setPos(StringPosition(pos.index, input))
+    }.iterator
+  }
+
+  def tokenizeFromString(input: String) = lexer.tokenizeFromString(input)
 
   def unapply(tokens: Seq[Token]): String = {
     def reorder(tokens: Seq[Token], acc: Seq[Token]): Seq[Token] = tokens match {
@@ -111,7 +124,7 @@ object Lexer extends Lexers {
 
   val operators = oneOfEscaped(
     "+", "-", "**", "*", "//", "/", "%", "<<", ">>", "&", "|", 
-    "^", "~", ":=", "<=", ">=", "<", ">", "==", "!=", "@"
+    "^", "~", ":=", "<=", ">=", "<", ">", "==", "!=", "@", "!"
   ) |> { (value, str, pos) => (value, List(Positioned(Operator(str), pos))) }
 
   val delimiters = oneOfEscaped(
