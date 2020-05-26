@@ -55,5 +55,6 @@ abc""",
 "\
 abc",
 r"\
-abc"
+abc",
+f"{{ test {{ }}",
 ]

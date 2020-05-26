@@ -83,7 +83,7 @@ object StringDecoder extends Lexers {
     unit("""\\[xNuU].?""") |> // 
       { (value, c, pos) => (value, List(Positioned(Failure(new Error(f"Failed to decode bytes at position ${pos}")), pos)))},
     
-    unit("""\{\p{all}*$""") |> // if we encounter a single brace, we stop decoding
+    unit("""\{[^\{]\p{all}*$""") |> // if we encounter a single brace, we stop decoding
       { (value, c, pos) => (value, List()) },
     unit("""\p{all}""") |> { (value, c, pos) => (value, List(Positioned(c.charAt(0), pos)))},
   )
@@ -132,7 +132,10 @@ object StringDecoder extends Lexers {
     else {
       val lexer = 
         if (prefix.contains("b")) bytesLexer
-        else if (prefix.contains("f")) formatLexer
+        else if (prefix.contains("f")) {
+          println("formatin string !!")
+          formatLexer
+        } 
         else stringLexer
   
       val tokens = lexer.tokenizeFromString(value).get.map(_.value)
