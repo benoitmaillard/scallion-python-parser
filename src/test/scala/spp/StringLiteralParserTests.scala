@@ -25,7 +25,7 @@ class StringLiteralParserTests extends FlatSpec {
   }
 
   it should "handle f-strings with conversion/format correclty" in {
-    val value = StringLiteral("f", "'", """this is a test {1!s:2""")
+    val value = StringLiteral("f", "'", """this is a test {1!s:2}""")
     assert(StringLiteralParser.parse(value) match {
       case JoinedStr(Seq(
         StringConstant("this is a test "),
