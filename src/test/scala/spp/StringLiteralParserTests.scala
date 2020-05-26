@@ -34,4 +34,18 @@ class StringLiteralParserTests extends FlatSpec {
       case _ => false
     })
   }
+
+  it should "handle f-strings with multiple constant and format parts" in {
+    val value = StringLiteral("f", "'", """this is a test {1} ... {2} end""")
+    assert(StringLiteralParser.parse(value) match {
+      case JoinedStr(Seq(
+        StringConstant("this is a test "),
+        FormattedValue(IntConstant(v1), None, None),
+        StringConstant(" ... "),
+        FormattedValue(IntConstant(v2), None, None),
+        StringConstant(" end")
+      )) => v1 == BigInt(1) && v2 == BigInt(2)
+      case _ => false
+    })
+  }
 }
