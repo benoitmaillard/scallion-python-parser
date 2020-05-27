@@ -24,11 +24,9 @@ object StringLiteralParser {
 
     // TODO: in the case were we encounter a '}', we must check that we are at level 0
     if (tailPart.isEmpty) (cstPartSeq(cstPart), "")
-    else if (tailPart.head == '}') (cstPartSeq(cstPart), tailPart.drop(1)) // we drop the '}'
+    else if (tailPart.head == '}') (cstPartSeq(cstPart), tailPart)
     else {
       val (fValue, remaining) = parseFromExpr(prefix, level, tailPart.drop(1)) // we drop the '{'
-      (cstPartSeq(cstPart) :+ fValue, remaining)
-
       val (exprsAfter, remainingAfter) = parseFormattedStr(prefix, level, remaining)
       ((cstPartSeq(cstPart) :+ fValue) ++ exprsAfter, remainingAfter)
     }
@@ -78,9 +76,10 @@ object StringLiteralParser {
   }
 
   def findExprEnd(tokens: List[Token], stack: List[String]): Try[(List[Token], Token)] = {
+    val delimiterMap = Map("{" -> "}", "[" -> "]", "(" -> ")")
+
     def findExprEndAcc(tokens: List[Token], stack: List[String], acc: List[Token]): Try[(List[Token], Token)] = tokens match {
-      case (t@Delimiter(del@("{" | "[" | "("))) :: tail =>
-        findExprEndAcc(tail, del :: stack, t :: acc)
+      case (t@Delimiter(del@("{" | "[" | "("))) :: tail => findExprEndAcc(tail, delimiterMap(del) :: stack, t :: acc)
       case (t@Delimiter(del@("}" | "]" | ")"))) :: tail => stack match {
         case `del` :: stackTail => findExprEndAcc(tail, stackTail, t :: acc)
         case Nil => if (del == "}") Success((acc, t)) else Failure(new Error(f"Unmatched $del")) 
@@ -93,6 +92,7 @@ object StringLiteralParser {
       case other :: tail => findExprEndAcc(tail, stack, other :: acc)
       case Nil => Failure(new Error(f"Unclosed format value"))
     }
-    findExprEndAcc(tokens, stack, List())
+
+    findExprEndAcc(tokens, stack, List()).map{ case (resTokens, after) => (resTokens.reverse, after) }
   }
 }
