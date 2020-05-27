@@ -5,7 +5,15 @@ import spp.parsing.StringLiteralParser
 import spp.structure.AbstractSyntaxTree._
 
 class StringLiteralParserTests extends FlatSpec {    
-  "string parser" should "handle the trivial case" in {
+  "string parser" should "handle the empty string" in {
+    val trivial = StringLiteral("f", "'", """""")
+    assert(StringLiteralParser.parse(trivial) match {
+      case JoinedStr(Seq()) => true
+      case _ => false
+    })
+  }
+
+  it should "handle the trivial case" in {
     val trivial = StringLiteral("f", "'", """this is a test""")
     assert(StringLiteralParser.parse(trivial) match {
       case JoinedStr(Seq(StringConstant("this is a test"))) => true
