@@ -83,7 +83,7 @@ object StringDecoder extends Lexers {
     unit("""\\[xNuU].?""") |> // 
       { (value, c, pos) => (value, List(Positioned(Failure(new Error(f"Failed to decode bytes at position ${pos}")), pos)))},
     
-    ("""\{""" ~ ("$"|"""[^\{]*""")) | ("}" ~ ("$"|"[^}]*")) |> // if we encounter a single brace, we stop decoding
+    ("""\{""" ~ ("$"|"""[^\{]\p{all}*""")) | ("}" ~ ("$"|"""[^}]\p{all}*""")) |> // if we encounter a single brace, we stop decoding
       { (value, c, pos) => (value, List()) },
     unit("""\p{all}""") |> { (value, c, pos) => (value, List(Positioned(c.charAt(0), pos)))},
   )
