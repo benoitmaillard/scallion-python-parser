@@ -37,7 +37,7 @@ class StringLiteralParserTests extends FlatSpec {
     assert(StringLiteralParser.parse(value) match {
       case JoinedStr(Seq(
         StringConstant("this is a test "),
-        FormattedValue(IntConstant(v), Some('s'), Some(StringConstant("2"))) // BigInt has no unapply
+        FormattedValue(IntConstant(v), Some('s'), Some(JoinedStr(Seq(StringConstant("2"))))) // BigInt has no unapply
       )) => v == BigInt(1)
       case _ => false
     })
