@@ -56,4 +56,20 @@ class StringLiteralParserTests extends FlatSpec {
       case _ => false
     })
   }
+
+  it should "handle nested f-strings correctly" in {
+    val value = StringLiteral("f", "'", """value : {(1 + 1)!s:{width!s:format} test{precision}}""")
+    println(StringLiteralParser.parse(value))
+    assert(StringLiteralParser.parse(value) match {
+      case JoinedStr(Seq(
+        StringConstant("value : "),
+        FormattedValue(BinOp("+", IntConstant(v1), IntConstant(v2)), Some('s'), Some(JoinedStr(Seq(
+          FormattedValue(Name("width"), Some('s'), Some(JoinedStr(Seq(StringConstant("format"))))),
+          StringConstant(" test"),
+          FormattedValue(Name("precision"), None, None)
+        )))),
+      )) => v1 == BigInt(1) && v2 == BigInt(1)
+      case _ => false
+    })
+  }
 }
