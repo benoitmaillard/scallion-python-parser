@@ -90,9 +90,9 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
   })
 
   lazy val string: Syntax[Expr] = accept(StringClass) ({
-    case StringLiteral(prefix, delimiter, value) => StringConstant(Some(prefix), value)
+    case sl:StringLiteral => StringLiteralParser.parse(sl)
   }, {
-    case StringConstant(prefix, value) => Seq(StringLiteral(prefix.get, "'", value))
+    case StringConstant(value) => Seq(StringLiteral("", "'", value))
     case _ => Seq()
   })
 
@@ -753,6 +753,7 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
     })
 
   val parser = LL1(module)
+  val stringParser = LL1(test)
   val printer = PrettyPrinter(module)
   
   def apply(ctx: Context, tokens: Iterator[Token]): Module = {
@@ -779,6 +780,14 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
     println(pretty)
 
     res
+  }
+
+  def parseExpr(tokens: Iterator[Token]): Expr = {
+    stringParser(tokens) match {
+      case LL1.Parsed(value, rest) => value
+      case LL1.UnexpectedToken(token, rest) => throw new Error(f"Invalid token $token")
+      case LL1.UnexpectedEnd(rest) => throw new Error("Invalid end")
+    }
   }
 
   def unapply(value: Module): Option[String] = {

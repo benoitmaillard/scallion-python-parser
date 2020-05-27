@@ -26,6 +26,7 @@ abstract class Position {
   val file: File
   val line: Int
   val col: Int
+  val str = ""
 
   def isDefined: Boolean
   def withoutFile: String
@@ -35,6 +36,17 @@ case class SourcePosition(file: File, line: Int, col: Int) extends Position {
   override def toString: String = s"${file.getPath}:$line:$col"
   def withoutFile = s"$line:$col"
   val isDefined = true
+}
+
+// TODO handle positions properly
+case class StringPosition(index: Int, override val str: String) extends Position {
+  val file = null
+  val line = 0
+  val col = index
+
+  override def toString: String = "?:?"
+  def withoutFile = toString
+  val isDefined = false
 }
 
 case object NoPosition extends Position {

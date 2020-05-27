@@ -30,7 +30,7 @@ object DecodeToString {
             case _:StringLiteral => true
             case _ => false
         }).map({
-            case s:StringLiteral =>  StringDecoder.decode(s).get.map(c => c.toInt).mkString(";") + ";"
+            case s:StringLiteral =>  StringDecoder.decode(s.prefix, s.value).get.map(c => c.toInt).mkString(";") + ";"
         }).mkString("\n")
     }
 }

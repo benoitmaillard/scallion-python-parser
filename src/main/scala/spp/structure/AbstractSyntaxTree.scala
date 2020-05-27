@@ -51,14 +51,15 @@ object AbstractSyntaxTree {
   case class Compare(left: Expr, ops: Seq[String], comparators: Seq[Expr]) extends Expr
   // NOTE: documentation has two separate lists for args, keyword args
   case class Call(func: Expr, args: Seq[CallArg]) extends Expr
-  case class FormattedValue() extends Expr
-  case class JoinedStr() extends Expr
+  case class FormattedValue(value: Expr, conversion: Option[Char], format: Option[Expr]) extends Expr
+  case class JoinedStr(values: Seq[Expr]) extends Expr
 
   trait Constant extends Expr
   case class IntConstant(value: BigInt) extends Constant
   case class FloatConstant(value: Double) extends Constant
   case class ImaginaryConstant(value: Double) extends Constant
-  case class StringConstant(prefix: Option[String], value: String) extends Constant
+  case class StringConstant(value: String) extends Constant
+  case class BytesConstant(value: String) extends Constant
 
   case class Attribute(value: Expr, attr: String) extends Expr
   case class Subscript(value: Expr, slice: Slice) extends Expr

@@ -49,6 +49,45 @@ object StringDecoder extends Lexers {
     unit("""\p{all}""") |> { (value, c, pos) => (value, List(Positioned(c.charAt(0), pos)))},
   )
 
+  val formatStrRules = RuleSet(
+    unit("""\\"""+'\n') |> 
+      { case(value, _, _) => (value, List()) },
+    replace("""\\\\""", '\\'),
+    replace("""\\'""", '\''),
+    replace("""\\"""+'"', '\"'),
+    replace("""\\a""", '\u0007'),
+    replace("""\\b""", '\b'),
+    replace("""\\f""", '\f'),
+    replace("""\\n""", '\n'),
+    replace("""\\r""", '\r'),
+    replace("""\\t""", '\t'),
+    replace("""\\v""", '\u000b'),
+    replace("""\{\{""", '{'),
+    replace("""}}""", '}'),
+    """\\""" ~/~ "[0-7]{1,3}" |>
+      { case (value, esc ~ oct, pos) => (value, List(Positioned(Integer.parseInt(oct, 8).toChar, pos))) },
+    """\\x""" ~/~ "[0-9a-fA-F]{2}" |>
+      { case (value, esc ~ hex, pos) =>
+        (value, List(Positioned(Integer.parseInt(hex, 16).toChar, pos)))
+      },
+    """\\N\{""" ~/~ "[a-zA-Z]*" ~/~ "}" |>
+      { case (value, open ~ name ~ close, pos) => (value, List(Positioned(unicodeFromName(name), pos))) },
+    """\\u""" ~/~ "[0-9a-zA-Z]{4}" |>
+      { case (value, esc ~ hex, pos) =>
+        (value, List(Positioned(Integer.parseInt(hex, 16).toChar, pos)))
+      },
+    """\\U""" ~/~ "[0-9a-zA-Z]{8}" |>
+      { case (value, esc ~ hex, pos) =>
+        (value, List(Positioned(Integer.parseInt(hex, 16).toChar, pos)))
+      },
+    unit("""\\[xNuU].?""") |> // 
+      { (value, c, pos) => (value, List(Positioned(Failure(new Error(f"Failed to decode bytes at position ${pos}")), pos)))},
+    
+    ("""\{""" ~ ("$"|"""[^\{]\p{all}*""")) | ("}" ~ ("$"|"""[^}]\p{all}*""")) |> // if we encounter a single brace, we stop decoding
+      { (value, c, pos) => (value, List()) },
+    unit("""\p{all}""") |> { (value, c, pos) => (value, List(Positioned(c.charAt(0), pos)))},
+  )
+
   val bytesRules = RuleSet(
     replace("""\\\\""", '\\'),
     replace("""\\'""", '\''),
@@ -71,8 +110,11 @@ object StringDecoder extends Lexers {
     unit("""\p{all}""") |> { (value, c, pos) => (value, List(Positioned(c.charAt(0), pos)))},
   )
 
-  val bytesLexer = Lexer(LexerState(bytesRules, None), ' ')
-  val stringLexer = Lexer(LexerState(strRules, None), ' ')
+  val error = Failure(new Error(f"Unable to decode"))
+
+  val bytesLexer = Lexer(LexerState(bytesRules, None), error)
+  val stringLexer = Lexer(LexerState(strRules, None), error)
+  val formatLexer = Lexer(LexerState(formatStrRules, None), error)
 
   def unicodeFromName(name: String): Char =
       if (name == "LF") '\n'
@@ -83,14 +125,17 @@ object StringDecoder extends Lexers {
     unit(pattern) |> { (value, str, pos) => 
       { (value, List(Positioned(replacement, pos)))} }
 
-  def decode(literal: StringLiteral): Try[String] = {
-    val prefix = literal.prefix.toLowerCase
+  def decode(prefix: String, value: String): Try[String] = {
+    val pr = prefix.toLowerCase
 
-    if (prefix.contains("r")) Success(literal.value)
+    if (prefix.contains("r")) Success(value)
     else {
-      val lexer = if (prefix.contains("b")) bytesLexer else stringLexer
+      val lexer = 
+        if (prefix.contains("b")) bytesLexer
+        else if (prefix.contains("f")) formatLexer
+        else stringLexer
   
-      val tokens = lexer.tokenizeFromString(literal.value).get.map(_.value)
+      val tokens = lexer.tokenizeFromString(value).get.map(_.value)
 
       Try(tokens.map(_.get).mkString)
     }

@@ -55,7 +55,8 @@ abc""",
 "\
 abc",
 r"\
-abc"
+abc",
+f"{{ test {{ }}",
 ]
 
 for s in strs:
