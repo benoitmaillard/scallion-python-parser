@@ -59,7 +59,6 @@ class StringLiteralParserTests extends FlatSpec {
 
   it should "handle nested f-strings correctly" in {
     val value = StringLiteral("f", "'", """value : {(1 + 1)!s:{width!s:format} test{precision}}""")
-    println(StringLiteralParser.parse(value))
     assert(StringLiteralParser.parse(value) match {
       case JoinedStr(Seq(
         StringConstant("value : "),
