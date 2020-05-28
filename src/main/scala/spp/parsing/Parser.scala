@@ -223,26 +223,57 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
     })
   
   lazy val parameters: Syntax[Arguments] =
-    delU("(").skip ~ typedArgsList ~ delU(")").skip map ({
-      case (args, varargs, kwonly, kwargs) => Arguments(args, varargs, kwonly, kwargs)
+    delU("(").skip ~ opt(typedArgsList) ~ delU(")").skip map ({
+      case Some((args, varargs, kwonly, kwargs)) => Arguments(args, varargs, kwonly, kwargs)
+      case _ => Arguments(Seq(), None, Seq(), None)
     }, {
-      case Arguments(args, varargs, kwonly, kwargs) => Seq((args, varargs, kwonly, kwargs))
+      case Arguments(Seq(), None, Seq(), None) => Seq(None)
+      case Arguments(args, varargs, kwonly, kwargs) => Seq(Some((args, varargs, kwonly, kwargs)))
       case _ => Seq()
     })
 
   lazy val typedArgsList: Syntax[(Seq[Arg], Option[Arg], Seq[Arg], Option[Arg])] =
-    repsep(tfpdefDefault, delU(",")) map ({
-      case args => (args, None, Seq(), None)
+    tfpdefDefault ~ typedArgsList2 || typedArgsList3 map ({
+      case Left(arg ~ ((args, varargs, kwonly, kwargs))) => (arg +: args, varargs, kwonly, kwargs)
+      case Right((varargs, kwonly, kwargs)) => (Seq(), varargs, kwonly, kwargs)
+    })
+  lazy val typedArgsList2: Syntax[(Seq[Arg], Option[Arg], Seq[Arg], Option[Arg])] = recursive(
+    opt(delU(",").skip ~ (tfpdefDefault ~ typedArgsList2 || opt(typedArgsList3))) map ({
+      case Some(Left(arg ~ ((args, varargs, kwonly, kwargs)))) => (arg +: args, varargs, kwonly, kwargs)
+      case Some(Right(Some((varargs, kwonly, kwargs)))) => (Seq(), varargs, kwonly, kwargs)
+      case _ => (Seq(), None, Seq(), None)
+    }))
+  lazy val typedArgsList3: Syntax[(Option[Arg], Seq[Arg], Option[Arg])] =
+    typedArgsList4 || opU("**").skip ~ tfpdef ~ opt(delU(",")) map ({
+      case Left(args) => args
+      case Right(arg ~ _) => (None, Seq(), Some(arg))
+    })
+    
+  lazy val typedArgsList4: Syntax[(Option[Arg], Seq[Arg], Option[Arg])] =
+    opU("*").skip ~ opt(tfpdef) ~ typedArgsList5 map ({
+      case optArg ~ ((kwonly, kwargs)) => (optArg, kwonly, kwargs)
+    })
+  lazy val typedArgsList5: Syntax[(Seq[Arg], Option[Arg])] = recursive(
+    opt(delU(",").skip ~ (tfpdefDefault ~ typedArgsList5 || opt(opU("**").skip ~ tfpdef ~ opt(delU(","))))) map ({
+      case Some(Left(arg ~ ((kwonly, kwargs)))) => (arg +: kwonly, kwargs)
+      case Some(Right(Some(kwargs ~ _))) => (Seq(), Some(kwargs))
+      case _ => (Seq(), None)
+    })
+  )
+
+  lazy val tfpdefDefault: Syntax[Arg] =
+    tfpdef ~ opt(delU("=").skip ~ test) map ({
+      case arg ~ optDft => Arg(arg.arg, arg.annotation, optDft)
     }, {
-      case (args, None, Seq(), None) => Seq(args)
+      case Arg(name, optAnn, optDft) => Seq(Arg(name, optAnn, None) ~ optDft)
       case _ => Seq()
     })
 
-  lazy val tfpdefDefault: Syntax[Arg] =
-    nameString ~ opt(delU(":").skip ~ test) ~ opt(delU("=").skip ~ test) map ({
-      case name ~ optAnn ~ optDft => Arg(name, optAnn, optDft)
+  lazy val tfpdef: Syntax[Arg] =
+    nameString ~ opt(delU(":").skip ~ test) map ({
+      case name ~ optAnn => Arg(name, optAnn, None)
     }, {
-      case Arg(name, optAnn, optDft) => Seq(name ~ optAnn ~ optDft)
+      case Arg(name, optAnn, optDft) => Seq(name ~ optAnn)
       case _ => Seq()
     })
 
@@ -761,8 +792,6 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
       debug(module)
 
       throw new Error("Syntax is not LL1")
-    } else {
-      println("Syntax is LL1!")
     }
     
     val res = parser(tokens) match {
@@ -772,10 +801,6 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
       }
       case LL1.UnexpectedEnd(rest) => throw new Error(f"Invalid end")
     }
-
-    println("Pretty printing: ")
-    val pretty = unapply(res).get
-    println(pretty)
 
     res
   }
