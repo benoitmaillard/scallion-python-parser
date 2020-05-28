@@ -38,6 +38,7 @@ object AbstractSyntaxTree {
   case class NamedExpr(target: Expr, value: Expr) extends Expr
   case class BinOp(op: String, left: Expr, right: Expr) extends Expr
   case class UnaryOp(op: String, expr: Expr) extends Expr
+  case class Lambda(args: Arguments, body: Expr) extends Expr
   case class IfExpr(condition: Expr, ifValue: Expr, elseValue: Expr) extends Expr
   case class Dict(keys: Seq[Expr], values: Seq[Expr]) extends Expr
   case class Set(elts: Seq[Expr]) extends Expr

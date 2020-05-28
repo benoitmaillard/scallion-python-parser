@@ -54,6 +54,22 @@ class TreeResultTests extends FlatSpec with Matchers {
     }
   }
 
+  it should "produce correct tree for lambda definition" in {
+    tree("lambda") should matchPattern {
+      case Module(Seq(ExprStmt(
+        Lambda(
+          Arguments(
+            Seq(
+              Arg("x", None, None),
+              Arg("y", None, Some(IntConstant(_)))
+            ), None, Seq(), None
+          ),
+          BinOp("+", Name("x"), Name("y"))
+        )
+      ))) =>
+    }
+  }
+
   def tree(path: String): Module = {
       val base = "src/test/resources/input/tree/"
 
