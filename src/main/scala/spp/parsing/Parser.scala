@@ -756,11 +756,11 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
   val stringParser = LL1(test)
   val printer = PrettyPrinter(module)
   
-  def apply(ctx: Context, tokens: Iterator[Token]): Module = {
+  def apply(tokens: Iterator[Token]): Module = {
     if (!module.isLL1) {
       debug(module)
 
-      ctx.reporter.fatal("Syntax is not LL1!")
+      throw new Error("Syntax is not LL1")
     } else {
       println("Syntax is LL1!")
     }
@@ -768,11 +768,9 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
     val res = parser(tokens) match {
       case LL1.Parsed(value, rest) => value
       case LL1.UnexpectedToken(token, rest) => {
-        println(token)
-        println(token.position)
-        ctx.reporter.fatal("Invalid token")
+        throw new Error(f"Invalid token $token at ${token.position}")
       }
-      case LL1.UnexpectedEnd(rest) => ctx.reporter.fatal("Invalid end")
+      case LL1.UnexpectedEnd(rest) => throw new Error(f"Invalid end")
     }
 
     println("Pretty printing: ")
