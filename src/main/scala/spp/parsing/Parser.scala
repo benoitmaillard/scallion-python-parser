@@ -631,7 +631,7 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
 
   // TODO comprehensions, ellipsis and strings
   lazy val atom: Syntax[Expr] =
-    recursive (name | number | string | atomPredef | atomParens | atomBrackets)
+    recursive (name | number | string | atomPredef | atomParens | atomBrackets | atomBraces)
 
   // parenthesized expression
   lazy val atomParens: Syntax[Expr] = // TODO centralize tuple creation
@@ -668,6 +668,40 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
     case List(exprs) => Seq(Right(exprs))
     case _ => Seq()
   })
+
+  // expression in braces, either a dict literal or a set comprehension
+  lazy val atomBraces: Syntax[Expr] =
+    delU("{").skip ~ opt(dictOrSetMaker) ~ delU("}").skip map ({
+      case None => Dict(Seq())
+      case Some(e) => e
+    }, {
+      case Dict(Seq()) => Seq(None)
+      case e => Seq(Some(e))
+    })
+
+  lazy val dictOrSetMaker: Syntax[Expr] =
+    dictOrSetMaker1.up[Expr] | dictOrSetMaker2.up[Expr] | dictOrSetMaker3
+  lazy val dictOrSetMaker1: Syntax[Dict] = opU("**").skip ~ expr ~ opt(keyvalList) map ({
+    case e ~ next => Dict(KeyVal(None, e) +: next.getOrElse(Seq()))
+  })
+  lazy val dictOrSetMaker2: Syntax[Set] = starExpr ~ opt(seteltsList) map ({
+    case e ~ next => Set(e +: next.getOrElse(Seq()))
+  })
+  lazy val dictOrSetMaker3: Syntax[Expr] =
+    test ~ (delU(":").skip ~ test ~ (compFor || keyvalList) || (compFor || seteltsList)) map ({
+      case e1 ~ Left(e2 ~ Left(comp)) => DictComp(KeyVal(Some(e1), e2), comp)
+      case e1 ~ Left(e2 ~ Right(keyvals)) => Dict(KeyVal(Some(e1), e2) +: keyvals)
+      case e1 ~ Right(Left(comp)) => SetComp(e1, comp)
+      case e1 ~ Right(Right(vals)) => Set(e1 +: vals)
+    })
+
+  lazy val keyvalList: Syntax[Seq[KeyVal]] = delU(",").skip ~ repsep(keyval, delU(",")) /* [','] */
+  lazy val keyval: Syntax[KeyVal] = test ~ delU(":").skip ~ test || opU("**").skip ~ expr map ({
+    case Left(key ~ value) => KeyVal(Some(key), value)
+    case Right(e) => KeyVal(None, e)
+  })
+
+  lazy val seteltsList: Syntax[Seq[Expr]] = delU(",").skip ~ repsep(test | starExpr, delU(",")) /* [','] */
   
   // None, True, False
   lazy val atomPredef: Syntax[Expr] = (kw("None") | kw("True") | kw("False")) map ({

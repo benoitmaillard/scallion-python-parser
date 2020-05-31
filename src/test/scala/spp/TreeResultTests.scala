@@ -15,7 +15,7 @@ class TreeResultTests extends FlatSpec with Matchers {
               BinOp("+",
                 BinOp("+",
                   Name("x"),
-                  BinOp("*", IntConstant(_),Call(Name("int"),Vector(PosArg(StringConstant("test")))))
+                  BinOp("*", IntConstant(_),Call(Name("int"),Seq(PosArg(StringConstant("test")))))
                 ),
                 BinOp("%",IntConstant(_),IntConstant(_))),
               Seq(">"),
@@ -67,6 +67,26 @@ class TreeResultTests extends FlatSpec with Matchers {
           BinOp("+", Name("x"), Name("y"))
         )
       ))) =>
+    }
+  }
+
+  it should "produce correct tree for set and dictionary literals" in {
+    tree("dict-sets") should matchPattern {
+      case Module(Seq(
+        Assign(Seq(Name("x")), Set(Seq(IntConstant(_), IntConstant(_), IntConstant(_)))),
+        Assign(Seq(Name("x")), SetComp(Name(i), Seq(Comprehension(Name("i"), Call(Name(range), Seq(PosArg(IntConstant(_)), PosArg(IntConstant(_)))), Seq())))),
+        Assign(Seq(Name("x")), Dict(Seq(KeyVal(Some(IntConstant(_)), IntConstant(_)), KeyVal(Some(IntConstant(_)), IntConstant(_))))),
+        Assign(Seq(Name("x")), Dict(Seq(KeyVal(None, Name("dic"))))),
+        Assign(Seq(Name("x")), Dict(Seq(KeyVal(None, Name("dic")), KeyVal(Some(IntConstant(_)), IntConstant(_))))),
+        Assign(Seq(Name("x")), Set(Seq(Starred(Name(l)), IntConstant(_), IntConstant(_)))),
+        Assign(Seq(Name("x")), DictComp(
+          KeyVal(Some(Name("key")), Name("value")),
+          Seq(Comprehension(
+            Tuple(Seq(Name("key"), Name("value"))),
+            Call(Name("zip"), Seq(PosArg(Name("keys")), PosArg(Name("values")))),
+            Seq())))
+          )
+        )) =>
     }
   }
 

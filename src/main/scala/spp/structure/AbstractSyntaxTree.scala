@@ -40,11 +40,11 @@ object AbstractSyntaxTree {
   case class UnaryOp(op: String, expr: Expr) extends Expr
   case class Lambda(args: Arguments, body: Expr) extends Expr
   case class IfExpr(condition: Expr, ifValue: Expr, elseValue: Expr) extends Expr
-  case class Dict(keys: Seq[Expr], values: Seq[Expr]) extends Expr
+  case class Dict(elts: Seq[KeyVal]) extends Expr
   case class Set(elts: Seq[Expr]) extends Expr
   case class ListComp(elt: Expr, generators: Seq[Comprehension]) extends Expr
   case class SetComp(elt: Expr, generators: Seq[Comprehension]) extends Expr
-  case class Dictcomp(key: Expr, value: Expr, generators: Seq[Comprehension]) extends Expr
+  case class DictComp(elt: KeyVal, generators: Seq[Comprehension]) extends Expr
   case class GeneratorExp(elt: Expr, generators: Seq[Comprehension]) extends Expr
   case class Await(value: Expr) extends Expr
   case class Yield(value: Option[Expr]) extends Expr
@@ -70,6 +70,9 @@ object AbstractSyntaxTree {
   case class Tuple(elts: Seq[Expr]) extends Expr
 
   case class Arg(arg: String, annotation: Option[Expr], default: Option[Expr]) extends Tree
+
+  // key is None when `**` is used
+  case class KeyVal(key: Option[Expr], value: Expr) extends Tree
 
   trait CallArg extends Tree
   case class PosArg(value: Expr) extends CallArg
