@@ -9,7 +9,8 @@ object Main {
     try {
       
       val tokens = Lexer(args.toList.head)
-      val tree = Parser(tokens)        
+      val tree = Parser(tokens)
+      println(tree)      
     } catch {
       case AmycFatalError(msg) => sys.exit(1)
     }

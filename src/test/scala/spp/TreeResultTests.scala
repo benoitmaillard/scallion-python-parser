@@ -90,6 +90,21 @@ class TreeResultTests extends FlatSpec with Matchers {
     }
   }
 
+  it should "produce correct tree for decorated classes and functions" in {
+    tree("decorated") should matchPattern {
+      case Module(Seq(
+        ClassDef("Test", Vector(PosArg(Name("object"))), Seq(
+          FunctionDef("method",
+            Arguments(Seq(), None, Seq(), None),
+            Seq(Return(Some(IntConstant(_)))),
+            Seq(Name("staticmethod")),None
+          )
+        ), Seq(Call(Attribute(Attribute(Name("some"), "random"), "decorator"), Seq(PosArg(IntConstant(_)), PosArg(IntConstant(_)))))
+        )
+      )) =>
+    }
+  }
+
   def tree(path: String): Module = {
       val base = "src/test/resources/input/tree/"
 

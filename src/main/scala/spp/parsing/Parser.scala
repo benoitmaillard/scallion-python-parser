@@ -119,7 +119,7 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
     rep1sep(smallStmt, delU(";")) ~ newLine.skip
 
   lazy val compoundStmt: Syntax[Statement] = ifStmt | whileStmt | forStmt | tryStmt |
-    withStmt | funcDef | classDef /* | decorated | asyncStmt*/
+    withStmt | funcDef.up[Statement] | classDef.up[Statement] | decorated /*| asyncStmt*/
 
   def optSuite(keyword: String): Syntax[Seq[Statement]] =
     opt(kwU(keyword).skip ~ delU(":").skip ~ suiteStmt) map ({
@@ -212,7 +212,7 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
       case _ => Seq()
     })
 
-  lazy val funcDef: Syntax[Statement] =
+  lazy val funcDef: Syntax[FunctionDef] =
     kwU("def").skip ~ nameString ~ parameters ~ opt(delU("->").skip ~ test) ~
     delU(":").skip ~ suiteStmt map ({
       case name ~ params ~ optReturnType ~ body => FunctionDef(name, params, body, Seq(), optReturnType)
@@ -321,7 +321,7 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
     case _ => Seq()
   })
 
-  lazy val classDef: Syntax[Statement] =
+  lazy val classDef: Syntax[ClassDef] =
     kwU("class").skip ~ nameString ~ opt(delU("(").skip ~ argList ~ delU(")").skip) ~
     delU(":").skip ~ suiteStmt map ({
       case name ~ Some(bases) ~ body => ClassDef(name, bases, body, Seq())
@@ -331,7 +331,24 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
       case ClassDef(name, bases, body, Seq()) => Seq(name ~ Some(bases) ~ body)
       case _ => Seq()
     })
-  lazy val decorated: Syntax[Statement] = ???
+
+  lazy val decorator: Syntax[Expr] =
+    opU("@").skip ~ rep1sep(nameString, delU(".")) ~ opt(delU("(").skip ~ argList ~ delU(")").skip) ~ newLine.skip map ({
+      case names ~ optArgs => {
+        val target = names.tail.foldLeft[Expr](Name(names.head)){
+          case (acc, cur) => Attribute(acc, cur)
+        }
+        optArgs.map(Call(target, _)).getOrElse(target)
+      }
+    })
+  
+  lazy val decorators = many1(decorator)
+
+  lazy val decorated: Syntax[Statement] = decorators ~ (classDef || funcDef) map ({
+    case ds ~ Left(clazz) => clazz.copy(decorators = ds)
+    case ds ~ Right(fun) => fun.copy(decorators = ds)
+  })
+
   lazy val asyncStmt: Syntax[Statement] = ???
 
   lazy val smallStmt: Syntax[Statement] =
