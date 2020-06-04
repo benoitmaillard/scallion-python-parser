@@ -648,7 +648,20 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
 
   // TODO comprehensions, ellipsis and strings
   lazy val atom: Syntax[Expr] =
-    recursive (name | number | string | atomPredef | atomParens | atomBrackets | atomBraces)
+    recursive (name | number | atomString | atomPredef | atomParens | atomBrackets | atomBraces)
+
+  lazy val atomString: Syntax[Expr] = many1(string) map ({
+    case strings => strings.map{
+      case c:StringConstant => Seq(c)
+      case JoinedStr(values) => values
+    }.flatten.foldLeft(Seq.empty[Expr]){
+      case (init :+ StringConstant(v1), StringConstant(v2)) => init :+ StringConstant(v1 + v2)
+      case (acc, e) => acc :+ e
+    } match {
+      case head :: Nil => head
+      case parts => JoinedStr(parts)
+    }
+  })
 
   // parenthesized expression
   lazy val atomParens: Syntax[Expr] = // TODO centralize tuple creation
