@@ -106,7 +106,6 @@ class TreeResultTests extends FlatSpec with Matchers {
   }
 
   it should "produce correct tree for call arguments" in {
-    println(tree("call-args"))
     tree("call-args") should matchPattern {
       case Module(Seq(
         ExprStmt(Call(Name("fun"), Seq(
@@ -128,6 +127,3 @@ class TreeResultTests extends FlatSpec with Matchers {
       Parser(Lexer(base + path + ".py"))
   }
 }
-
-
-
