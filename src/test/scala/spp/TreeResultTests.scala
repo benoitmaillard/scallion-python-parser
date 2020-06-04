@@ -93,7 +93,7 @@ class TreeResultTests extends FlatSpec with Matchers {
   it should "produce correct tree for decorated classes and functions" in {
     tree("decorated") should matchPattern {
       case Module(Seq(
-        ClassDef("Test", Vector(PosArg(Name("object"))), Seq(
+        ClassDef("Test", Seq(PosArg(Name("object"))), Seq(
           FunctionDef("method",
             Arguments(Seq(), None, Seq(), None),
             Seq(Return(Some(IntConstant(_)))),
@@ -101,6 +101,23 @@ class TreeResultTests extends FlatSpec with Matchers {
           )
         ), Seq(Call(Attribute(Attribute(Name("some"), "random"), "decorator"), Seq(PosArg(IntConstant(_)), PosArg(IntConstant(_)))))
         )
+      )) =>
+    }
+  }
+
+  it should "produce correct tree for call arguments" in {
+    println(tree("call-args"))
+    tree("call-args") should matchPattern {
+      case Module(Seq(
+        ExprStmt(Call(Name("fun"), Seq(
+          PosArg(GeneratorExp(Name("x"),Seq(Comprehension(Name("x"), List(Seq(IntConstant(_), IntConstant(_), IntConstant(_))), Seq()))))
+        ))),
+        ExprStmt(Call(Name("fun"),Seq(
+          PosArg(Name("a")),
+          PosArg(Starred(Name("b"))),
+          KeywordArg(None,Name("c")),
+          KeywordArg(Some(Name("test")), IntConstant(_))
+        )))
       )) =>
     }
   }

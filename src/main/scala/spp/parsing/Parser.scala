@@ -734,7 +734,7 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
 
   lazy val trailerCall: Syntax[Seq[CallArg]] =
     delU("(").skip ~ argList ~ delU(")").skip
-  lazy val argList: Syntax[Seq[CallArg]] = repsep(argument, delU(","))
+  lazy val argList: Syntax[Seq[CallArg]] = repsep(argument, delU(",")) /*[',']*/
 
   lazy val trailerSubscript: Syntax[Slice] =
     delU("[").skip ~ subscriptList ~ delU("]").skip map ({
@@ -748,23 +748,25 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
 
   lazy val trailerName: Syntax[String] = delU(".").skip ~ nameString
 
-  lazy val argument: Syntax[CallArg] = argumentStartingWithTest | argumentStar | argumentDoubleStar
+  lazy val argument: Syntax[CallArg] = recursive(argumentStartingWithTest | argumentStar | argumentDoubleStar)
   lazy val argumentStartingWithTest: Syntax[CallArg] =
-    test ~ opt(opU(":=").skip ~ test || delU("=").skip ~ test) map ({
+    test ~ opt(opU(":=").skip ~ test || delU("=").skip ~ test || compFor) map ({
       case e1 ~ o => o match {
         case None => PosArg(e1)
-        case Some(Left(e2)) => PosArg(NamedExpr(e1, e2))
-        case Some(Right(e2)) => KeywordArg(Some(e1), e2)
+        case Some(Left(Left(e2))) => PosArg(NamedExpr(e1, e2))
+        case Some(Left(Right(e2))) => KeywordArg(Some(e1), e2)
+        case Some(Right(comp)) => PosArg(GeneratorExp(e1, comp))
       }
     }, {
-      case KeywordArg(Some(e1), e2) => Seq(e1 ~ Some(Right(e2)))
-      case PosArg(NamedExpr(e1, e2)) => Seq(e1 ~ Some(Left(e2)))
+      case KeywordArg(Some(e1), e2) => Seq(e1 ~ Some(Left(Right(e2))))
+      case PosArg(NamedExpr(e1, e2)) => Seq(e1 ~ Some(Left(Left(e2))))
+      case PosArg(GeneratorExp(e1, comp)) => Seq(e1 ~ Some(Right(comp)))
       case PosArg(e1) => Seq(e1 ~ None)
       case _ => Seq()
     })
 
-  lazy val argumentStar: Syntax[CallArg] = opU("*").skip ~ test map ({
-    case e => PosArg(e) // TODO is this correct ?
+  lazy val argumentStar: Syntax[CallArg] = starExpr map ({
+    case e => PosArg(e)
   }, {
     case PosArg(e) => Seq(e)
     case _ => Seq()
