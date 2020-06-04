@@ -613,18 +613,28 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
     case _ => Seq()
   })
 
-  lazy val expr: Syntax[Expr] = operators(atomExpr)(
-    op("|") is LeftAssociative,
-    op("^") is LeftAssociative,
-    op("&") is LeftAssociative,
-    op("<<") | op(">>") is LeftAssociative,
+  lazy val expr: Syntax[Expr] = operators(factor)(
     op("*") | op("@") | op("/") | op("%") | op("//") is LeftAssociative,
-    op("+") | op("-") | op("~") is LeftAssociative,
-    op("**") is RightAssociative
+    op("+") | op("-") is LeftAssociative,
+    op("<<") | op(">>") is LeftAssociative,
+    op("&") is LeftAssociative,
+    op("^") is LeftAssociative,
+    op("|") is LeftAssociative,
   )({
     case (l, op, r) => BinOp(op, l, r)
   }, {
     case BinOp(op, l, r) => (l, op, r)
+  })
+
+  lazy val factor: Syntax[Expr] = recursive((op("+") | op("-") | op("~")) ~ factor || power) map ({
+    case Left(o ~ e) => UnaryOp(o, e)
+    case Right(e) => e
+  })
+
+  // operators can not be used because of asymmetry (atomExpr - factor)
+  lazy val power: Syntax[Expr] = atomExpr ~ opt(opU("**").skip ~ factor) map ({
+    case left ~ None => left
+    case left ~ Some(right) => BinOp("**", left, right)
   })
 
   lazy val atomExpr: Syntax[Expr] = /* await */ atom ~ (many(trailer)) map ({

@@ -23,7 +23,9 @@ class TreeResultTests extends FlatSpec with Matchers {
             ),
             Compare(Name("x"), Seq("=="), Seq(Name("True")))
           )
-        )
+        ),
+        ExprStmt(BinOp("-", Name("x"), UnaryOp("-", IntConstant(_)))),
+        ExprStmt(BinOp("*", Name("x"), BinOp("**", Name("x"), BinOp("**", IntConstant(_), IntConstant(_)))))
       )) =>
     }
   }
