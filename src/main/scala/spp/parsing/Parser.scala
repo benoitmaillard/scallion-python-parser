@@ -442,8 +442,8 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
     })
 
   lazy val importFromRelative: Syntax[(Int, Option[String])] =
-    many1(del(".") /* |ellipsis*/) ~ opt(dottedName) map ({
-      case dots ~ optName => (dots.size, optName)
+    many1(del(".") | op("...")) ~ opt(dottedName) map ({
+      case dots ~ optName => (dots.map(_.size).sum, optName)
     }, {
       case (nDots, optName) => Seq(Seq.fill(nDots)(".") ~ optName)
     })
@@ -744,10 +744,15 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
   lazy val seteltsList: Syntax[Seq[Expr]] = delU(",").skip ~ repsep(test | starExpr, delU(",")) /* [','] */
   
   // None, True, False
-  lazy val atomPredef: Syntax[Expr] = (kw("None") | kw("True") | kw("False")) map ({
-    case v => Name(v)
+  lazy val atomPredef: Syntax[Expr] = (kw("True") | kw("False") | kw("None") | op("...")) map ({
+    case "True" => BooleanConstant(true)
+    case "False" => BooleanConstant(false)
+    case "None" => NoneValue
+    case "..." => Ellipsis
   }, {
-    case Name(v) => Seq(v)
+    case BooleanConstant(bool) => Seq(if (bool) "True" else "False")
+    case NoneValue => Seq("None")
+    case Ellipsis => Seq("...")
     case _ => Seq()
   })
   

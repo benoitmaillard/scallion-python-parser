@@ -61,6 +61,9 @@ object AbstractSyntaxTree {
   case class ImaginaryConstant(value: Double) extends Constant
   case class StringConstant(value: String) extends Constant
   case class BytesConstant(value: String) extends Constant
+  case class BooleanConstant(value: Boolean) extends Constant
+  case object NoneValue extends Constant
+  case object Ellipsis extends Constant
 
   case class Attribute(value: Expr, attr: String) extends Expr
   case class Subscript(value: Expr, slice: Slice) extends Expr

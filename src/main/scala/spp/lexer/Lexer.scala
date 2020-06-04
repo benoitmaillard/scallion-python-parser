@@ -124,7 +124,7 @@ object Lexer extends Lexers {
 
   val operators = oneOfEscaped(
     "+", "-", "**", "*", "//", "/", "%", "<<", ">>", "&", "|", 
-    "^", "~", ":=", "<=", ">=", "<", ">", "==", "!=", "@"
+    "^", "~", ":=", "<=", ">=", "<", ">", "==", "!=", "@", "..."
   ) |> { (value, str, pos) => (value, List(Positioned(Operator(str), pos))) }
 
   val delimiters = oneOfEscaped(
