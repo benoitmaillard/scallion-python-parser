@@ -123,6 +123,33 @@ class TreeResultTests extends FlatSpec with Matchers {
     }
   }
 
+  it should "produce correct tree for different kinds of tuples" in  {
+    tree("tuples") should matchPattern {
+      case Module(Seq(
+        Assign(Seq(Name("t")), Tuple(Seq(IntConstant(_), IntConstant(_), IntConstant(_)))),
+        Assign(Seq(Name("t")), Tuple(Seq(IntConstant(_), IntConstant(_), IntConstant(_)))),
+        Assign(Seq(Name("e")), IntConstant(_)),
+        Assign(Seq(Name("t")), Tuple(Seq(IntConstant(_)))),
+
+        ExprStmt(ListComp(Name("x"), Seq(Comprehension(Tuple(Seq(Name("x"), Name("y"), Name("z"))), Name("test"), Seq())))),
+        ExprStmt(ListComp(Name("x"), Seq(Comprehension(Tuple(Seq(Name("x"), Name("y"), Name("z"))), Name("test"), Seq())))),
+        ExprStmt(ListComp(Name("x"), Seq(Comprehension(Tuple(Seq(Name("x"))), Name(test), Seq())))),
+        ExprStmt(ListComp(Name("x"), Seq(Comprehension(Name("x"), Name("test"), Seq())))),
+
+        For(Tuple(Seq(Name("x"), Name("y"), Name("z"))), Name("test"), Seq(Pass), Seq()),
+        For(Tuple(Seq(Name("x"), Name("y"), Name("z"))), Name("test"), Seq(Pass), Seq()),
+        For(Tuple(Seq(Name("x"))), Name("test"), Seq(Pass), Seq()),
+        For(Name("x"), Name("test"), Seq(Pass), Seq()),
+
+        Assign(Seq(Tuple(Seq(Name("x"), Name("y"), Name("z")))), Tuple(Seq(IntConstant(_), IntConstant(_), IntConstant(_)))),
+        Assign(Seq(Tuple(Seq(Name("x"), Name("y"), Name("z")))), Tuple(Seq(IntConstant(_), IntConstant(_), IntConstant(_)))),
+        Assign(Seq(Tuple(Seq(Name("x"), Name("y"), Name("z")))), Tuple(Seq(IntConstant(_), IntConstant(_), IntConstant(_)))),
+        Assign(Seq(Name("x")), IntConstant(_)),
+        Assign(Seq(Tuple(Seq(Name("x")))), Tuple(Seq(IntConstant(_))))
+      )) =>
+    }
+  }
+
   def tree(path: String): Module = {
       val base = "src/test/resources/input/tree/"
 
