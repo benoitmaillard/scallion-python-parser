@@ -67,7 +67,7 @@ object AbstractSyntaxTree {
   case class Subscript(value: Expr, slice: Slice) extends Expr
   case class Starred(value: Expr) extends Expr
   case class Name(name: String) extends Expr
-  case class List(elts: Seq[Expr]) extends Expr
+  case class PythonList(elts: Seq[Expr]) extends Expr
   case class Tuple(elts: Seq[Expr]) extends Expr
 
   case class Arg(arg: String, annotation: Option[Expr], default: Option[Expr]) extends Tree

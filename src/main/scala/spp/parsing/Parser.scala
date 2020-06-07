@@ -746,18 +746,18 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
   // bracketized expression, either a list literal or a list comprehension
   lazy val atomBrackets: Syntax[Expr] =
     delU("[").skip ~ opt(atomBracketsContent) ~ delU("]").skip map ({
-      case None => List(Seq.empty)
+      case None => PythonList(Seq.empty)
       case Some(e) => e
     }, {
-      case List(Seq()) => Seq(None)
+      case PythonList(Seq()) => Seq(None)
       case e => Seq(Some(e))
     })
   lazy val atomBracketsContent: Syntax[Expr] = testListComp map ({
     case Left((e, comps)) => ListComp(e, comps)
-    case Right((exprs, _)) => List(exprs)
+    case Right((exprs, _)) => PythonList(exprs)
   }, {
     case ListComp(e, comps) => Seq(Left((e, comps)))
-    case List(exprs) => Seq(Right(exprs, false))
+    case PythonList(exprs) => Seq(Right(exprs, false))
     case _ => Seq()
   })
 

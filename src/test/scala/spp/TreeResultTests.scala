@@ -111,7 +111,7 @@ class TreeResultTests extends FlatSpec with Matchers {
     tree("call-args") should matchPattern {
       case Module(Seq(
         ExprStmt(Call(Name("fun"), Seq(
-          PosArg(GeneratorExp(Name("x"),Seq(Comprehension(Name("x"), List(Seq(IntConstant(_), IntConstant(_), IntConstant(_))), Seq(), false))))
+          PosArg(GeneratorExp(Name("x"),Seq(Comprehension(Name("x"), PythonList(Seq(IntConstant(_), IntConstant(_), IntConstant(_))), Seq(), false))))
         ))),
         ExprStmt(Call(Name("fun"),Seq(
           PosArg(Name("a")),
