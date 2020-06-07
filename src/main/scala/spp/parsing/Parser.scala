@@ -664,12 +664,19 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
   })
 
   // operators can not be used because of asymmetry (atomExpr - factor)
-  lazy val power: Syntax[Expr] = atomExpr ~ opt(opU("**").skip ~ factor) map ({
+  lazy val power: Syntax[Expr] = atomExprAwait ~ opt(opU("**").skip ~ factor) map ({
     case left ~ None => left
     case left ~ Some(right) => BinOp("**", left, right)
   })
 
-  lazy val atomExpr: Syntax[Expr] = /* await */ atom ~ (many(trailer)) map ({
+  lazy val atomExprAwait: Syntax[Expr] = opt(kw("await")) ~ atomExpr map({
+    case awt ~ exp => awt.map(_ => Await(exp)).getOrElse(exp)
+  }, {
+    case Await(e) => Seq(Some("await") ~ e)
+    case e => Seq(None ~ e)
+  })
+
+  lazy val atomExpr: Syntax[Expr] = atom ~ (many(trailer)) map ({
     case e ~ Seq() => e
     case e ~ trailers => trailers.foldLeft(e)((previousExp, trailer) => trailer match {
       case Left(name) => Attribute(previousExp, name)
