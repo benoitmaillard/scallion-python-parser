@@ -7,19 +7,17 @@ object AbstractSyntaxTree {
   case class Module(body: Seq[Statement]) extends Tree
 
   trait Statement extends Tree
-  case class FunctionDef(name: String, args: Arguments, body: Seq[Statement], decorators: Seq[Expr], returns: Option[Expr]) extends Statement
-  case class AsyncFunctionDef() extends Statement
+  case class FunctionDef(name: String, args: Arguments, body: Seq[Statement], decorators: Seq[Expr], returns: Option[Expr], async: Boolean = false) extends Statement
   case class ClassDef(name: String, bases: Seq[CallArg], body: Seq[Statement], decorators: Seq[Expr]) extends Statement
   case class Return(value: Option[Expr]) extends Statement
   case class Delete(targets: Seq[Expr]) extends Statement
   case class Assign(targets: Seq[Expr], value: Expr) extends Statement
   case class AugAssign(target: Expr, op: String, value: Expr) extends Statement
   case class AnnAssign(target: Expr, annotation: Expr, value: Option[Expr], simple: Boolean = false) extends Statement
-  case class For(target: Expr, iter: Expr, body: Seq[Statement], orelse: Seq[Statement]) extends Statement
-  case class AsyncFor(target: Expr, iter: Expr, body: Seq[Statement], orelse: Seq[Statement]) extends Statement
+  case class For(target: Expr, iter: Expr, body: Seq[Statement], orelse: Seq[Statement], async: Boolean = false) extends Statement
   case class While(test: Expr, body: Seq[Statement], orelse: Seq[Statement]) extends Statement
   case class If(test: Expr, body: Seq[Statement], orelse: Seq[Statement]) extends Statement
-  case class With(items: Seq[WithItem], body: Seq[Statement]) extends Statement
+  case class With(items: Seq[WithItem], body: Seq[Statement], async: Boolean = false) extends Statement
   case class AsyncWith(items: Seq[WithItem], body: Seq[Statement]) extends Statement
   case class Raise(exc: Option[Expr], cause: Option[Expr]) extends Statement
   case class Try(body: Seq[Statement], handlers: Seq[ExceptionHandler], orelse: Seq[Statement], finalbody: Seq[Statement]) extends Statement
@@ -38,12 +36,13 @@ object AbstractSyntaxTree {
   case class NamedExpr(target: Expr, value: Expr) extends Expr
   case class BinOp(op: String, left: Expr, right: Expr) extends Expr
   case class UnaryOp(op: String, expr: Expr) extends Expr
+  case class Lambda(args: Arguments, body: Expr) extends Expr
   case class IfExpr(condition: Expr, ifValue: Expr, elseValue: Expr) extends Expr
-  case class Dict(keys: Seq[Expr], values: Seq[Expr]) extends Expr
+  case class Dict(elts: Seq[KeyVal]) extends Expr
   case class Set(elts: Seq[Expr]) extends Expr
   case class ListComp(elt: Expr, generators: Seq[Comprehension]) extends Expr
   case class SetComp(elt: Expr, generators: Seq[Comprehension]) extends Expr
-  case class Dictcomp(key: Expr, value: Expr, generators: Seq[Comprehension]) extends Expr
+  case class DictComp(elt: KeyVal, generators: Seq[Comprehension]) extends Expr
   case class GeneratorExp(elt: Expr, generators: Seq[Comprehension]) extends Expr
   case class Await(value: Expr) extends Expr
   case class Yield(value: Option[Expr]) extends Expr
@@ -60,6 +59,9 @@ object AbstractSyntaxTree {
   case class ImaginaryConstant(value: Double) extends Constant
   case class StringConstant(value: String) extends Constant
   case class BytesConstant(value: String) extends Constant
+  case class BooleanConstant(value: Boolean) extends Constant
+  case object NoneValue extends Constant
+  case object Ellipsis extends Constant
 
   case class Attribute(value: Expr, attr: String) extends Expr
   case class Subscript(value: Expr, slice: Slice) extends Expr
@@ -70,13 +72,16 @@ object AbstractSyntaxTree {
 
   case class Arg(arg: String, annotation: Option[Expr], default: Option[Expr]) extends Tree
 
+  // key is None when `**` is used
+  case class KeyVal(key: Option[Expr], value: Expr) extends Tree
+
   trait CallArg extends Tree
   case class PosArg(value: Expr) extends CallArg
   // arg is None when an argument of the type **kwargs is passed
   // arg is an expression but we have to check that it is actually name later
   case class KeywordArg(arg: Option[Expr], value: Expr) extends CallArg
 
-  case class Comprehension(target: Expr, iter: Expr, ifs: Seq[Expr] /*isAsync*/) extends Tree
+  case class Comprehension(target: Expr, iter: Expr, ifs: Seq[Expr], async: Boolean = false) extends Tree
 
   case class Alias(name: String, asname: Option[String]) extends Tree
 

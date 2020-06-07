@@ -6,14 +6,11 @@ import java.io.File
 
 object Main {
   def main(args: Array[String]): Unit = {
-    val context = Context(new Reporter, args.toList)
-
     try {
       
-      val tokens = Lexer(context.files.head)
-      val tree = Parser(context, tokens)        
-      
-      context.reporter.terminateIfErrors()
+      val tokens = Lexer(args.toList.head)
+      val tree = Parser(tokens)
+      println(tree)      
     } catch {
       case AmycFatalError(msg) => sys.exit(1)
     }
