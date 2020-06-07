@@ -151,7 +151,13 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
     rep1septr(smallStmt, delU(";")) ~ newLine.skip
 
   lazy val compoundStmt: Syntax[Statement] = ifStmt | whileStmt | forStmt | tryStmt |
-    withStmt | funcDef.up[Statement] | classDef.up[Statement] | decorated /*| asyncStmt*/
+    withStmt | funcDef.up[Statement] | classDef.up[Statement] | decorated | asyncStmt
+  
+  lazy val asyncStmt: Syntax[Statement] = kwU("async").skip ~ (funcDef.up[Statement] | withStmt | forStmt) map ({
+    case f:FunctionDef => f.copy(async = true)
+    case w:With => w.copy(async = true)
+    case f:For => f.copy(async = true)
+  })
 
   def optSuite(keyword: String): Syntax[Seq[Statement]] =
     opt(kwU(keyword).skip ~ delU(":").skip ~ suiteStmt) map ({
@@ -232,7 +238,7 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
     kwU("with").skip ~ rep1sep(withItem, delU(",")) ~ delU(":").skip ~ suiteStmt map ({
       case items ~ suite => With(items, suite)
     }, {
-      case With(items, suite) => Seq(items ~ suite)
+      case With(items, suite, _) => Seq(items ~ suite)
       case _ => Seq()
     })
 
@@ -243,13 +249,21 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
       case WithItem(item, optName) => Seq(item ~ optName)
       case _ => Seq()
     })
+  
+  lazy val asyncFuncdef: Syntax[FunctionDef] =
+    kwU("async").skip ~ funcDef map ({
+      case f => f.copy(async = true)
+    }, {
+      case f@FunctionDef(_, _, _, _, _, true) => Seq(f)
+      case _ => Seq()
+    })
 
   lazy val funcDef: Syntax[FunctionDef] =
     kwU("def").skip ~ nameString ~ parameters ~ opt(delU("->").skip ~ test) ~
     delU(":").skip ~ suiteStmt map ({
       case name ~ params ~ optReturnType ~ body => FunctionDef(name, params, body, Seq(), optReturnType)
     }, {
-      case FunctionDef(name, params, body, Seq(), optReturnType) =>
+      case FunctionDef(name, params, body, Seq(), optReturnType, _) =>
         Seq(name ~ params ~ optReturnType ~ body)
       case _ => Seq()
     })
@@ -376,12 +390,10 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
   
   lazy val decorators = many1(decorator)
 
-  lazy val decorated: Syntax[Statement] = decorators ~ (classDef || funcDef) map ({
+  lazy val decorated: Syntax[Statement] = decorators ~ (classDef || (funcDef | asyncFuncdef)) map ({
     case ds ~ Left(clazz) => clazz.copy(decorators = ds)
     case ds ~ Right(fun) => fun.copy(decorators = ds)
   })
-
-  lazy val asyncStmt: Syntax[Statement] = ???
 
   lazy val smallStmt: Syntax[Statement] =
     exprStmt | delStmt | passStmt | flowStmt | importStmt |
@@ -894,11 +906,11 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
     })
   
   lazy val compFor: Syntax[Seq[Comprehension]] = /*[async]*/
-    kwU("for").skip ~ exprList ~ kwU("in").skip ~ orTest ~ opt(compIter) map ({
-      case (forExps, isTuple) ~ inExp ~ optFollow => optFollow match {
-        case None => Seq(Comprehension(if (isTuple) Tuple(forExps) else singleExprOrTuple(forExps), inExp, Seq.empty))
+    opt(kwU("async")) ~ kwU("for").skip ~ exprList ~ kwU("in").skip ~ orTest ~ opt(compIter) map ({
+      case async ~ ((forExps, isTuple)) ~ inExp ~ optFollow => optFollow match {
+        case None => Seq(Comprehension(if (isTuple) Tuple(forExps) else singleExprOrTuple(forExps), inExp, Seq.empty, async.isDefined))
         case Some((ifs, comps)) => {
-          val headComp = Comprehension(singleExprOrTuple(forExps), inExp, ifs)
+          val headComp = Comprehension(singleExprOrTuple(forExps), inExp, ifs, async.isDefined)
           headComp +: comps
         }
       }

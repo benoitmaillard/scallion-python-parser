@@ -49,8 +49,7 @@ class TreeResultTests extends FlatSpec with Matchers {
               Return(Some(IntConstant(_))
             )
           ),
-          Seq(),
-          None
+          Seq(), None, false
         )
       )) =>
     }
@@ -76,7 +75,7 @@ class TreeResultTests extends FlatSpec with Matchers {
     tree("dict-sets") should matchPattern {
       case Module(Seq(
         Assign(Seq(Name("x")), Set(Seq(IntConstant(_), IntConstant(_), IntConstant(_)))),
-        Assign(Seq(Name("x")), SetComp(Name(i), Seq(Comprehension(Name("i"), Call(Name(range), Seq(PosArg(IntConstant(_)), PosArg(IntConstant(_)))), Seq())))),
+        Assign(Seq(Name("x")), SetComp(Name(i), Seq(Comprehension(Name("i"), Call(Name(range), Seq(PosArg(IntConstant(_)), PosArg(IntConstant(_)))), Seq(), false)))),
         Assign(Seq(Name("x")), Dict(Seq(KeyVal(Some(IntConstant(_)), IntConstant(_)), KeyVal(Some(IntConstant(_)), IntConstant(_))))),
         Assign(Seq(Name("x")), Dict(Seq(KeyVal(None, Name("dic"))))),
         Assign(Seq(Name("x")), Dict(Seq(KeyVal(None, Name("dic")), KeyVal(Some(IntConstant(_)), IntConstant(_))))),
@@ -86,7 +85,7 @@ class TreeResultTests extends FlatSpec with Matchers {
           Seq(Comprehension(
             Tuple(Seq(Name("key"), Name("value"))),
             Call(Name("zip"), Seq(PosArg(Name("keys")), PosArg(Name("values")))),
-            Seq())))
+            Seq(), false)))
           )
         )) =>
     }
@@ -99,7 +98,8 @@ class TreeResultTests extends FlatSpec with Matchers {
           FunctionDef("method",
             Arguments(Seq(), None, Seq(), None),
             Seq(Return(Some(IntConstant(_)))),
-            Seq(Name("staticmethod")),None
+            Seq(Name("staticmethod")),
+            None, false
           )
         ), Seq(Call(Attribute(Attribute(Name("some"), "random"), "decorator"), Seq(PosArg(IntConstant(_)), PosArg(IntConstant(_)))))
         )
@@ -111,7 +111,7 @@ class TreeResultTests extends FlatSpec with Matchers {
     tree("call-args") should matchPattern {
       case Module(Seq(
         ExprStmt(Call(Name("fun"), Seq(
-          PosArg(GeneratorExp(Name("x"),Seq(Comprehension(Name("x"), List(Seq(IntConstant(_), IntConstant(_), IntConstant(_))), Seq()))))
+          PosArg(GeneratorExp(Name("x"),Seq(Comprehension(Name("x"), List(Seq(IntConstant(_), IntConstant(_), IntConstant(_))), Seq(), false))))
         ))),
         ExprStmt(Call(Name("fun"),Seq(
           PosArg(Name("a")),
@@ -131,15 +131,15 @@ class TreeResultTests extends FlatSpec with Matchers {
         Assign(Seq(Name("e")), IntConstant(_)),
         Assign(Seq(Name("t")), Tuple(Seq(IntConstant(_)))),
 
-        ExprStmt(ListComp(Name("x"), Seq(Comprehension(Tuple(Seq(Name("x"), Name("y"), Name("z"))), Name("test"), Seq())))),
-        ExprStmt(ListComp(Name("x"), Seq(Comprehension(Tuple(Seq(Name("x"), Name("y"), Name("z"))), Name("test"), Seq())))),
-        ExprStmt(ListComp(Name("x"), Seq(Comprehension(Tuple(Seq(Name("x"))), Name(test), Seq())))),
-        ExprStmt(ListComp(Name("x"), Seq(Comprehension(Name("x"), Name("test"), Seq())))),
+        ExprStmt(ListComp(Name("x"), Seq(Comprehension(Tuple(Seq(Name("x"), Name("y"), Name("z"))), Name("test"), Seq(), false)))),
+        ExprStmt(ListComp(Name("x"), Seq(Comprehension(Tuple(Seq(Name("x"), Name("y"), Name("z"))), Name("test"), Seq(), false)))),
+        ExprStmt(ListComp(Name("x"), Seq(Comprehension(Tuple(Seq(Name("x"))), Name(test), Seq(), false)))),
+        ExprStmt(ListComp(Name("x"), Seq(Comprehension(Name("x"), Name("test"), Seq(), false)))),
 
-        For(Tuple(Seq(Name("x"), Name("y"), Name("z"))), Name("test"), Seq(Pass), Seq()),
-        For(Tuple(Seq(Name("x"), Name("y"), Name("z"))), Name("test"), Seq(Pass), Seq()),
-        For(Tuple(Seq(Name("x"))), Name("test"), Seq(Pass), Seq()),
-        For(Name("x"), Name("test"), Seq(Pass), Seq()),
+        For(Tuple(Seq(Name("x"), Name("y"), Name("z"))), Name("test"), Seq(Pass), Seq(), false),
+        For(Tuple(Seq(Name("x"), Name("y"), Name("z"))), Name("test"), Seq(Pass), Seq(), false),
+        For(Tuple(Seq(Name("x"))), Name("test"), Seq(Pass), Seq(), false),
+        For(Name("x"), Name("test"), Seq(Pass), Seq(), false),
 
         Assign(Seq(Tuple(Seq(Name("x"), Name("y"), Name("z")))), Tuple(Seq(IntConstant(_), IntConstant(_), IntConstant(_)))),
         Assign(Seq(Tuple(Seq(Name("x"), Name("y"), Name("z")))), Tuple(Seq(IntConstant(_), IntConstant(_), IntConstant(_)))),
@@ -148,6 +148,19 @@ class TreeResultTests extends FlatSpec with Matchers {
         Assign(Seq(Tuple(Seq(Name("x")))), Tuple(Seq(IntConstant(_))))
       )) =>
     }
+  }
+  
+  it should "produce correct tree for asynchronous statements" in {
+    Module(Seq(
+      ExprStmt(Await(Name("test"))),
+      ExprStmt(ListComp(Name("x"), Seq(Comprehension(Name("x"), Name("test"), Seq(), true)))),
+      ExprStmt(ListComp(Name("x"), Seq(Comprehension(Name("x"), Name("test"), Seq(), false)))),
+
+      FunctionDef("test", Arguments(Seq(), None, Seq(), None), Seq(Return(Some(IntConstant(0)))), Seq(Name("test")), None, true),
+      FunctionDef("test", Arguments(Seq(), None, Seq(), None), Seq(Return(Some(IntConstant(0)))), Seq(), None, true),
+
+      With(Seq(WithItem(Call(Name("open"), Seq(PosArg(StringConstant("test")), PosArg(StringConstant("r")))), Some(Name("f")))), Seq(ExprStmt(Call(Name("print"), Seq(PosArg(StringConstant("test")))))), true),
+      For(Name("x"), Name("test"), Seq(ExprStmt(Call(Name("print"), Seq(PosArg(Name("x")))))), Seq(), true)))
   }
 
   def tree(path: String): Module = {
