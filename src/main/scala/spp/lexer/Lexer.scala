@@ -115,7 +115,7 @@ object Lexer extends Lexers {
   val space = unit("""\s""") |> {(value, str, pos) => (value, Nil)}
 
   val keywords = oneOf(
-    "False", "None", "True", "and", "assert", "as", "async",
+    "False", "None", "True", "and", "assert", "async", "as",
     "await", "break", "class", "continue", "def", "del", "elif",
     "else", "except", "finally", "for", "from", "global", "if",
     "import", "in", "is", "lambda", "nonlocal", "not", "or",
