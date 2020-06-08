@@ -190,6 +190,7 @@ object TreeSerializer {
       ("cause" -> cause)
     case Try(body, handlers, orelse, finalbody) =>
       mkName("Try") ~
+      ("body" -> body) ~
       ("handlers" -> handlers) ~
       ("orelse" -> orelse) ~
       ("finalbody" -> finalbody)
