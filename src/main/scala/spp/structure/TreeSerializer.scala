@@ -387,7 +387,7 @@ object TreeSerializer {
       ("ifs" -> ifs) ~
       ("is_async" -> (if (async) 1 else 0))
     case ExceptionHandler(tpe, name, body) =>
-      mkName("excepthandler") ~
+      mkName("ExceptHandler") ~
       ("type" -> tpe) ~
       ("name" -> name) ~
       ("body" -> body)
