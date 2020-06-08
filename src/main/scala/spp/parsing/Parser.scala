@@ -408,7 +408,7 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
       case e ~ None => ExprStmt(e)
       case e ~ Some(Left(Left(seq))) => Assign(e +: seq.init, seq.last)
       case e ~ Some(Left(Right(op ~ e2))) => AugAssign(e, op, e2)
-      case e ~ Some(Right((ann, opt))) => AnnAssign(e, ann, opt)
+      case e ~ Some(Right((ann, opt))) => AnnAssign(e, ann, opt, e match {case Name(name) => true case _ => false})
     }, {
       case ExprStmt(e) => Seq(e ~ None)
       case Assign(targets, value) => Seq(targets.head ~ Some(Left(Left(targets.tail :+ value))))

@@ -163,7 +163,7 @@ object TreeSerializer {
       ("target" -> target) ~
       ("annotation" -> annotation) ~
       ("value" -> value) ~
-      ("simple" -> simple)
+      ("simple" -> (if (simple) 1 else 0))
     case For(target, iter, body, orelse, async) =>
       mkName(if (async) "AsyncFor" else "For") ~
       ("target" -> target) ~
