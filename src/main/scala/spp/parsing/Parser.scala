@@ -817,14 +817,18 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
   lazy val argList: Syntax[Seq[CallArg]] = repseptr(argument, delU(","))
 
   lazy val trailerSubscript: Syntax[Slice] =
-    delU("[").skip ~ subscriptList ~ delU("]").skip map ({
-      case sl +: Seq() => sl
-      case slices => ExtSlice(slices)
+    delU("[").skip ~ subscriptList ~ delU("]").skip
+
+  lazy val subscriptList: Syntax[Slice] = rep1septrWithOpt(subscript, delU(",")) map ({
+      case (Seq(sl), false) => sl
+      case (slices, true) => 
+        if (slices.exists{case _:DefaultSlice => true case _ => false}) ExtSlice(slices)
+        else Index(Tuple(slices.collect{case i:Index => i}.map(_.value)))
     }, {
-      case ExtSlice(slices) => Seq(slices)
-      case sl => Seq(Seq(sl))
+      case ExtSlice(slices) => Seq((slices, true))
+      case Index(Tuple(exps)) => Seq((exps.map(Index(_)), true))
+      case s@(_:DefaultSlice | _:Index) => Seq((Seq(s), false))
     })
-  lazy val subscriptList: Syntax[Seq[Slice]] = rep1septr(subscript, delU(","))
 
   lazy val trailerName: Syntax[String] = delU(".").skip ~ nameString
 
