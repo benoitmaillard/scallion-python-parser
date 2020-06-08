@@ -10,9 +10,13 @@ import org.json4s.JsonDSL._
 import scala.language.implicitConversions
 
 import AbstractSyntaxTree._
+import scala.io.Source
 
 object TreeSerializer {
-  implicit val formats = Serialization.formats(NoTypeHints)
+  implicit def option2jvalue[A](opt: Option[A])(implicit ev: A => JValue): JValue = opt match {
+    case Some(x) => x
+    case None => JNull // a JNothing value is returned by default (hiding None values)
+  }
 
   /**
     * Serialize a module in JSON
@@ -21,6 +25,22 @@ object TreeSerializer {
     * @return serialized module
     */
   def serialize(module: Module): Document = render(serializeNode(module))
+
+  def compare(refPath: String, module: Module) = {
+    val refJSON = Source.fromFile(refPath).mkString
+    val ref = parse(refJSON)
+
+    // hack to make sure values with None are not taken into account
+    val output = parse(pretty(render(serializeNode(module))))
+
+    val Diff(changed, added, deleted) = output diff ref
+
+    println(pretty(serialize(module)))
+
+    println(f"changed : $changed")
+    println(f"added : $added")
+    println(f"deleted : $deleted")
+  }
 
   def mkName(name: String): (String, String) = ("nodeName" -> name)
 
@@ -32,7 +52,7 @@ object TreeSerializer {
       }
     }
 
-  def mkOp(op: String): String = Map(
+  def mkOp(op: String): JValue = mkName(Map(
     "and" -> "And",
     "or" -> "Or",
 
@@ -74,14 +94,14 @@ object TreeSerializer {
     "is not" -> "IsNot",
     "in" -> "In",
     "not in" -> "NotIn",
-  )(op)
+  )(op))
 
-  def mkUnOp(op: String): String = Map(
+  def mkUnOp(op: String): JValue = mkName(Map(
     "~" -> "Invert",
     "not" -> "Not",
     "+" -> "UAdd",
     "-" -> "USub"
-  )(op)
+  )(op))
 
   implicit def serializeSeq[A <: Tree](seq: Seq[A]): JArray = seq.map(serializeNode)
 
@@ -91,7 +111,7 @@ object TreeSerializer {
     * @param node node to encode
     * @return JSON object representing the node
     */
-  implicit def serializeNode(node: Tree): JObject = node match {
+  implicit def serializeNode(node: Tree): JValue = node match {
     case Module(body) => mkName("Module") ~ ("body" -> serializeSeq(body))
 
     // statements
@@ -118,7 +138,7 @@ object TreeSerializer {
       mkName("Delete") ~ 
       ("targets" -> targets)
     case Assign(targets, value) => 
-      mkName("Assgign") ~ 
+      mkName("Assign") ~ 
       ("targets" -> targets) ~ 
       ("value" -> value)
     case AugAssign(target, op, value) =>
@@ -270,7 +290,6 @@ object TreeSerializer {
       mkName("JoinedStr") ~
       ("values" -> values)
 
-    // TODO how to handle type ?
     case IntConstant(value) =>
       mkName("Constant") ~
       ("type" -> "int") ~
@@ -326,7 +345,7 @@ object TreeSerializer {
       ("elts" -> elts)
 
     case Arguments(args, vararg, kwonly, kwarg) => {
-      val defaults = args.map(_.default)
+      val defaults = args.map(_.default).filter(_.isDefined)
       val kwDefaults = kwonly.map(_.default)
 
       mkName("arguments") ~
@@ -334,6 +353,7 @@ object TreeSerializer {
       ("args" -> args) ~
       ("vararg" -> vararg) ~
       ("kwonlyargs" -> kwonly) ~
+      ("kwarg" -> kwarg) ~
       ("kw_defaults" -> kwDefaults) ~
       ("defaults" -> defaults)
     }
@@ -373,7 +393,7 @@ object TreeSerializer {
       ("upper" -> upper) ~
       ("step" -> step)
     case ExtSlice(dims) =>
-      mkName("ExtSlice") ~
+      mkName("Slice") ~
       ("dims" -> dims)
     case Index(value) =>
       mkName("Index") ~
