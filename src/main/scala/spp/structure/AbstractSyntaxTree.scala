@@ -18,7 +18,6 @@ object AbstractSyntaxTree {
   case class While(test: Expr, body: Seq[Statement], orelse: Seq[Statement]) extends Statement
   case class If(test: Expr, body: Seq[Statement], orelse: Seq[Statement]) extends Statement
   case class With(items: Seq[WithItem], body: Seq[Statement], async: Boolean = false) extends Statement
-  case class AsyncWith(items: Seq[WithItem], body: Seq[Statement]) extends Statement
   case class Raise(exc: Option[Expr], cause: Option[Expr]) extends Statement
   case class Try(body: Seq[Statement], handlers: Seq[ExceptionHandler], orelse: Seq[Statement], finalbody: Seq[Statement]) extends Statement
   case class Assert(test: Expr, msg: Option[Expr]) extends Statement
@@ -70,31 +69,24 @@ object AbstractSyntaxTree {
   case class PythonList(elts: Seq[Expr]) extends Expr
   case class Tuple(elts: Seq[Expr]) extends Expr
 
+  // arguments in a function definition
+  case class Arguments(args: Seq[Arg], vararg: Option[Arg], kwonly: Seq[Arg], kwarg: Option[Arg]) extends Tree
   case class Arg(arg: String, annotation: Option[Expr], default: Option[Expr]) extends Tree
-
-  // key is None when `**` is used
+  
   case class KeyVal(key: Option[Expr], value: Expr) extends Tree
-
+  
+  // arguments in a call
   trait CallArg extends Tree
   case class PosArg(value: Expr) extends CallArg
-  // arg is None when an argument of the type **kwargs is passed
-  // arg is an expression but we have to check that it is actually name later
   case class KeywordArg(arg: Option[Expr], value: Expr) extends CallArg
-
+  
   case class Comprehension(target: Expr, iter: Expr, ifs: Seq[Expr], async: Boolean = false) extends Tree
-
   case class Alias(name: String, asname: Option[String]) extends Tree
-
-  case class ExceptionHandler(tpe: Option[Expr], name: Option[String], body: Seq[Statement])
-
-  case class WithItem(contextExpr: Expr, optionalVars: Option[Expr])
-
-  // kwonly are the args placed after vararg
-  case class Arguments(args: Seq[Arg], vararg: Option[Arg], kwonly: Seq[Arg], kwarg: Option[Arg]) extends Tree
-
+  case class ExceptionHandler(tpe: Option[Expr], name: Option[String], body: Seq[Statement]) extends Tree
+  case class WithItem(contextExpr: Expr, optionalVars: Option[Expr]) extends Tree
+  
   trait Slice extends Tree
   case class DefaultSlice(lower: Option[Expr], upper: Option[Expr], step: Option[Expr]) extends Slice
-  // TODO should make the difference between slice and compositeslice
   case class ExtSlice(dims: Seq[Slice]) extends Slice
   case class Index(value: Expr) extends Slice
 }
