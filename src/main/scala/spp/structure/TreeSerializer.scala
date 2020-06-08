@@ -7,6 +7,8 @@ import org.json4s.native.Serialization
 import org.json4s.native.JsonMethods._
 import org.json4s.JsonDSL._
 
+import java.io.{File, BufferedWriter, FileWriter}
+
 import scala.language.implicitConversions
 
 import AbstractSyntaxTree._
@@ -35,11 +37,21 @@ object TreeSerializer {
 
     val Diff(changed, added, deleted) = output diff ref
 
+    saveJSON("debug/ref.json", ref)
+    saveJSON("debug/output.json", output)
+
     println(pretty(serialize(module)))
 
     println(f"changed : $changed")
     println(f"added : $added")
     println(f"deleted : $deleted")
+  }
+
+  def saveJSON(path: String, value: JValue) = {
+    val file = new File(path)
+    val bw = new BufferedWriter(new FileWriter(file))
+    bw.write(pretty(render(value)))
+    bw.close()
   }
 
   def mkName(name: String): (String, String) = ("nodeName" -> name)
@@ -192,7 +204,7 @@ object TreeSerializer {
       mkName("ImportFrom") ~
       ("module" -> module) ~
       ("names" -> names) ~
-      ("level" -> level)
+      ("level" -> level.getOrElse(0))
     case Global(names) =>
       mkName("Global") ~
       ("names" -> names)
@@ -393,7 +405,7 @@ object TreeSerializer {
       ("upper" -> upper) ~
       ("step" -> step)
     case ExtSlice(dims) =>
-      mkName("Slice") ~
+      mkName("ExtSlice") ~
       ("dims" -> dims)
     case Index(value) =>
       mkName("Index") ~
