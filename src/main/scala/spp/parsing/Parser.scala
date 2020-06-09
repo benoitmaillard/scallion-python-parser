@@ -713,7 +713,7 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
 
   lazy val atomString: Syntax[Expr] = many1(string) map ({
     case strings => strings.map{
-      case c:StringConstant => Seq(c)
+      case c@(_:StringConstant | _:BytesConstant) => Seq(c)
       case JoinedStr(values) => values
     }.flatten.foldLeft(Seq.empty[Expr]){
       case (init :+ StringConstant(v1), StringConstant(v2)) => init :+ StringConstant(v1 + v2)
