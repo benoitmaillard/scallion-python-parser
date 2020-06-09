@@ -30,6 +30,11 @@ class CustomEncoder(json.JSONEncoder):
             if isinstance(o.value, bytes):
                 d["value"] = o.value.decode("utf-8")
                 print(o.value.decode("utf-8"))
+            if o.value == None:
+                d["value"] = None
+            if o.value == Ellipsis:
+                d["value"] = "..."
+
 
         return d
 
