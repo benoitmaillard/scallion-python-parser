@@ -408,7 +408,7 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
       case e ~ None => ExprStmt(e)
       case e ~ Some(Left(Left(seq))) => Assign(e +: seq.init, seq.last)
       case e ~ Some(Left(Right(op ~ e2))) => AugAssign(e, op, e2)
-      case e ~ Some(Right((ann, opt))) => AnnAssign(e, ann, opt)
+      case e ~ Some(Right((ann, opt))) => AnnAssign(e, ann, opt, e match {case Name(name) => true case _ => false})
     }, {
       case ExprStmt(e) => Seq(e ~ None)
       case Assign(targets, value) => Seq(targets.head ~ Some(Left(Left(targets.tail :+ value))))
@@ -713,7 +713,7 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
 
   lazy val atomString: Syntax[Expr] = many1(string) map ({
     case strings => strings.map{
-      case c:StringConstant => Seq(c)
+      case c@(_:StringConstant | _:BytesConstant) => Seq(c)
       case JoinedStr(values) => values
     }.flatten.foldLeft(Seq.empty[Expr]){
       case (init :+ StringConstant(v1), StringConstant(v2)) => init :+ StringConstant(v1 + v2)
@@ -746,18 +746,18 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
   // bracketized expression, either a list literal or a list comprehension
   lazy val atomBrackets: Syntax[Expr] =
     delU("[").skip ~ opt(atomBracketsContent) ~ delU("]").skip map ({
-      case None => List(Seq.empty)
+      case None => PythonList(Seq.empty)
       case Some(e) => e
     }, {
-      case List(Seq()) => Seq(None)
+      case PythonList(Seq()) => Seq(None)
       case e => Seq(Some(e))
     })
   lazy val atomBracketsContent: Syntax[Expr] = testListComp map ({
     case Left((e, comps)) => ListComp(e, comps)
-    case Right((exprs, _)) => List(exprs)
+    case Right((exprs, _)) => PythonList(exprs)
   }, {
     case ListComp(e, comps) => Seq(Left((e, comps)))
-    case List(exprs) => Seq(Right(exprs, false))
+    case PythonList(exprs) => Seq(Right(exprs, false))
     case _ => Seq()
   })
 
@@ -817,14 +817,18 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
   lazy val argList: Syntax[Seq[CallArg]] = repseptr(argument, delU(","))
 
   lazy val trailerSubscript: Syntax[Slice] =
-    delU("[").skip ~ subscriptList ~ delU("]").skip map ({
-      case sl +: Seq() => sl
-      case slices => ExtSlice(slices)
+    delU("[").skip ~ subscriptList ~ delU("]").skip
+
+  lazy val subscriptList: Syntax[Slice] = rep1septrWithOpt(subscript, delU(",")) map ({
+      case (Seq(sl), false) => sl
+      case (slices, true) => 
+        if (slices.exists{case _:DefaultSlice => true case _ => false}) ExtSlice(slices)
+        else Index(Tuple(slices.collect{case i:Index => i}.map(_.value)))
     }, {
-      case ExtSlice(slices) => Seq(slices)
-      case sl => Seq(Seq(sl))
+      case ExtSlice(slices) => Seq((slices, true))
+      case Index(Tuple(exps)) => Seq((exps.map(Index(_)), true))
+      case s@(_:DefaultSlice | _:Index) => Seq((Seq(s), false))
     })
-  lazy val subscriptList: Syntax[Seq[Slice]] = rep1septr(subscript, delU(","))
 
   lazy val trailerName: Syntax[String] = delU(".").skip ~ nameString
 
