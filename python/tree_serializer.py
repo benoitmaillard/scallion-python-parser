@@ -27,6 +27,9 @@ class CustomEncoder(json.JSONEncoder):
             d["type"] = type(o.value).__name__
             if isinstance(o.value, complex):
                 d["value"] = o.value.imag
+            if isinstance(o.value, bytes):
+                d["value"] = o.value.decode("utf-8")
+                print(o.value.decode("utf-8"))
 
         return d
 
