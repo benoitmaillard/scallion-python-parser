@@ -220,11 +220,11 @@ object TreeSerializer {
     case Continue => mkName("Continue")
     
     // expressions
-    case BoolOp(op, left, right) =>
+    case BoolOp(op, values) =>
       mkName("BoolOp") ~
       ("op" -> mkOp(op)) ~
       // values are represented as a list instead of left/right for some weird reason
-      ("values" -> Seq(left, right))
+      ("values" -> values)
     case NamedExpr(target, value) =>
       mkName("NamedExpr") ~
       ("target" -> target) ~
@@ -378,7 +378,7 @@ object TreeSerializer {
       mkName("keyword") ~
       ("arg" -> arg.map {
         case Name(id) => id
-        case _ => throw new Error("argument key is not a name")
+        case other => throw new Error(f"argument key is not a name -> $other")
       }) ~ 
       ("value" -> value)
     case Comprehension(target, iter, ifs, async) =>

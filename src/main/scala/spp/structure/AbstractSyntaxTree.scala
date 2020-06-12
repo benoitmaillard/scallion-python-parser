@@ -31,7 +31,7 @@ object AbstractSyntaxTree {
   case class ExprStmt(value: Expr) extends Statement
 
   trait Expr extends Tree
-  case class BoolOp(op: String, left: Expr, right: Expr) extends Expr
+  case class BoolOp(op: String, values: Seq[Expr]) extends Expr
   case class NamedExpr(target: Expr, value: Expr) extends Expr
   case class BinOp(op: String, left: Expr, right: Expr) extends Expr
   case class UnaryOp(op: String, expr: Expr) extends Expr

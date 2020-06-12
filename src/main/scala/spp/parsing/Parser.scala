@@ -607,13 +607,19 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
       case None ~ e => Lambda(Arguments(Seq(), None, Seq(), None), e)
     })
 
-  lazy val orTest: Syntax[Expr] = operators(notTest)(
-    kw("or") is LeftAssociative,
-    kw("and") is LeftAssociative
-  ) ({
-    case (l, op, r) => BoolOp(op, l, r)
+  lazy val orTest: Syntax[Expr] = rep1sep(andTest, kwU("or")) map ({
+    case Seq(value) => value
+    case values => BoolOp("or", values)
   }, {
-    case BoolOp(op, l, r) => (l, op, r)
+    case BoolOp("or", values) => Seq(values)
+  })
+
+
+  lazy val andTest: Syntax[Expr] = rep1sep(notTest, kwU("and")) map ({
+    case Seq(value) => value
+    case values => BoolOp("and", values)
+  }, {
+    case BoolOp("and", values) => Seq(values)
   })
 
   lazy val notTest: Syntax[Expr] = comparison | recursive(
