@@ -5,7 +5,7 @@ import spp.parsing.StringLiteralParser
 import spp.structure.AbstractSyntaxTree._
 
 class StringLiteralParserTests extends FlatSpec {    
-  /*"string parser" should "handle the empty string" in {
+  "string parser" should "handle the empty string" in {
     val trivial = StringLiteral("f", "'", """""")
     assert(StringLiteralParser.parse(trivial) match {
       case JoinedStr(Seq()) => true
@@ -70,7 +70,7 @@ class StringLiteralParserTests extends FlatSpec {
       )) => v1 == BigInt(1) && v2 == BigInt(1)
       case _ => false
     })
-  }*/
+  }
 
   it should "handle brackets escaping correctly" in {
     val value = StringLiteral("f", "'", "test }}")
