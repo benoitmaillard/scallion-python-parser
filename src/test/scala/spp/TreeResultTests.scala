@@ -151,16 +151,19 @@ class TreeResultTests extends FlatSpec with Matchers {
   }
   
   it should "produce correct tree for asynchronous statements" in {
-    Module(Seq(
-      ExprStmt(Await(Name("test"))),
-      ExprStmt(ListComp(Name("x"), Seq(Comprehension(Name("x"), Name("test"), Seq(), true)))),
-      ExprStmt(ListComp(Name("x"), Seq(Comprehension(Name("x"), Name("test"), Seq(), false)))),
+    tree("async") should matchPattern {
+      case Module(Seq(
+        ExprStmt(Await(Name("test"))),
+        ExprStmt(ListComp(Name("x"), Seq(Comprehension(Name("x"), Name("test"), Seq(), true)))),
+        ExprStmt(ListComp(Name("x"), Seq(Comprehension(Name("x"), Name("test"), Seq(), false)))),
 
-      FunctionDef("test", Arguments(Seq(), None, Seq(), None), Seq(Return(Some(IntConstant(0)))), Seq(Name("test")), None, true),
-      FunctionDef("test", Arguments(Seq(), None, Seq(), None), Seq(Return(Some(IntConstant(0)))), Seq(), None, true),
+        FunctionDef("test", Arguments(Seq(), None, Seq(), None), Seq(Return(Some(IntConstant(_)))), Seq(Name("test")), None, true),
+        FunctionDef("test", Arguments(Seq(), None, Seq(), None), Seq(Return(Some(IntConstant(_)))), Seq(), None, true),
 
-      With(Seq(WithItem(Call(Name("open"), Seq(PosArg(StringConstant("test")), PosArg(StringConstant("r")))), Some(Name("f")))), Seq(ExprStmt(Call(Name("print"), Seq(PosArg(StringConstant("test")))))), true),
-      For(Name("x"), Name("test"), Seq(ExprStmt(Call(Name("print"), Seq(PosArg(Name("x")))))), Seq(), true)))
+        With(Seq(WithItem(Call(Name("open"), Seq(PosArg(StringConstant("test")), PosArg(StringConstant("r")))), Some(Name("f")))), Seq(ExprStmt(Call(Name("print"), Seq(PosArg(StringConstant("test")))))), true),
+        For(Name("x"), Name("test"), Seq(ExprStmt(Call(Name("print"), Seq(PosArg(Name("x")))))), Seq(), true)
+      )) =>
+    }
   }
 
   def tree(path: String): Module = {
