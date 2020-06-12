@@ -10,6 +10,7 @@ import spp.parsing._
 import spp.structure._
 import spp.structure.Tokens._
 import spp.structure.TokenClasses._
+import spp.lexer.StringDecoder.decode
 
 import scala.language.implicitConversions
 import spp.lexer.Lexer
@@ -125,6 +126,13 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
     case sl:StringLiteral => StringLiteralParser.parse(sl)
   }, {
     case StringConstant(value) => Seq(StringLiteral("", "'", value))
+    case _ => Seq()
+  })
+
+  lazy val bytes: Syntax[BytesConstant] = accept(BytesClass) ({
+    case BytesLiteral(prefix, delimiter, value) => BytesConstant(decode(prefix, value).get._1)
+  }, {
+    case BytesConstant(value) => Seq(BytesLiteral("", "'", value))
     case _ => Seq()
   })
 
@@ -707,13 +715,13 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
     case _ => Seq(e ~ Seq.empty) // expression without trailer
   }))
 
-  // TODO comprehensions, ellipsis and strings
   lazy val atom: Syntax[Expr] =
-    recursive (name | number | atomString | atomPredef | atomParens | atomBrackets | atomBraces)
+    recursive (name | number | atomString | atomBytes | atomPredef | atomParens | atomBrackets | atomBraces)
 
   lazy val atomString: Syntax[Expr] = many1(string) map ({
+    case Seq(string) => string // this case must be handled separately because a f-string with no format field should stay a JoinedStr 
     case strings => strings.map{
-      case c@(_:StringConstant | _:BytesConstant) => Seq(c)
+      case c:StringConstant => Seq(c)
       case JoinedStr(values) => values
     }.flatten.foldLeft(Seq.empty[Expr]){
       case (init :+ StringConstant(v1), StringConstant(v2)) => init :+ StringConstant(v1 + v2)
@@ -722,6 +730,10 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
       case head :: Nil => head
       case parts => JoinedStr(parts)
     }
+  })
+
+  lazy val atomBytes: Syntax[Expr] = many1(bytes) map ({
+    case seq => BytesConstant(seq.map(_.value).mkString)
   })
 
   // parenthesized expression
@@ -1013,8 +1025,9 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
   }
   
   def getKind(token: Token): Kind = token match {
-    case _:BytesLiteral | _:IntLiteral | _:FloatLiteral | _:ImaginaryLiteral => NumberClass
+    case _:IntLiteral | _:FloatLiteral | _:ImaginaryLiteral => NumberClass
     case _:StringLiteral => StringClass
+    case _:BytesLiteral => BytesClass
     case Keyword(name) => KeywordClass(name)
     case Operator(op) => OperatorClass(op)
     case Identifier(name) => NameClass

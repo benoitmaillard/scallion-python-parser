@@ -166,6 +166,17 @@ class TreeResultTests extends FlatSpec with Matchers {
     }
   }
 
+  it should "join string literals correctly" in {
+    tree("join-literals") should matchPattern {
+      case Module(Seq(ExprStmt(PythonList(Seq(
+        JoinedStr(Seq(StringConstant("test"))),
+        JoinedStr(Seq(StringConstant("test"), FormattedValue(Name("x"), None, None), StringConstant("test"))),   
+        StringConstant("testtest"),
+        BytesConstant("testtest")
+      ))))) =>
+    }   
+  }
+
   def tree(path: String): Module = {
       val base = "src/test/resources/input/tree/"
 

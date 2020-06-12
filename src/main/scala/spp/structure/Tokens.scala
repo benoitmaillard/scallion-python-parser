@@ -19,7 +19,6 @@ object Tokens {
   final case class Identifier(name: String) extends Token
   
   final case class StringLiteral(prefix: String, delimiter: String, value: String) extends Token
-  // final case class FormatStringLiteral(value: String) extends Token
   final case class BytesLiteral(prefix: String, delimiter: String, value: String) extends Token
   
   final case class IntLiteral(value: BigInt) extends Token
@@ -45,6 +44,7 @@ object TokenClasses {
   final case object NameClass extends TokenClass("<name>")
   final case object NumberClass extends TokenClass("<number>")
   final case object StringClass extends TokenClass("<string>")
+  final case object BytesClass extends TokenClass("<bytes>")
 
   final case class OperatorClass(value: String) extends TokenClass(value)
   final case class DelimiterClass(value: String) extends TokenClass(value)

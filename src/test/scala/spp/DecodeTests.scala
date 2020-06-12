@@ -26,11 +26,11 @@ class DecodeTests extends OutputComparisonSpec {
 
 object DecodeToString {
     def apply(tokens: Iterator[Token]) = {
-        tokens.filter({
-            case _:StringLiteral => true
-            case _ => false
+        tokens.collect({
+            case token@(_:StringLiteral | _:BytesLiteral) => token
         }).map({
-            case s:StringLiteral =>  StringDecoder.decode(s.prefix, s.value).get._1.map(c => c.toInt).mkString(";") + ";"
+            case StringLiteral(prefix, _, value) =>  StringDecoder.decode(prefix, value).get._1.map(c => c.toInt).mkString(";") + ";"
+            case BytesLiteral(prefix, _, value) => StringDecoder.decode(prefix, value).get._1.map(c => c.toInt).mkString(";") + ";"
         }).mkString("\n")
     }
 }

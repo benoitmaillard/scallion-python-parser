@@ -189,7 +189,11 @@ object Lexer extends Lexers {
       delimiterFull
 
     re |> {
-      case (value, List(pre, _, content, _)) => (value, List(StringLiteral(pre.str, delimiterFull, content.str)))
+      case (value, List(pre, _, content, _)) => {
+        val prefix = pre.str.toLowerCase
+        if (prefix.contains('b')) (value, List(BytesLiteral(prefix, delimiterFull, content.str)))
+        else (value, List(StringLiteral(prefix, delimiterFull, content.str)))
+      }
     }
   }
 
@@ -200,7 +204,11 @@ object Lexer extends Lexers {
       many(raw"""[^\\${'\n'}$delimiter]""" | raw"""\\$isValidChar""") ~/~
       delimiter.toString
     re |> {
-      case (value, List(pre, _, content, _)) => (value, List(StringLiteral(pre.str, delimiter.toString, content.str)))
+      case (value, List(pre, _, content, _)) => {
+        val prefix = pre.str.toLowerCase
+        if (prefix.contains('b')) (value, List(BytesLiteral(pre.str, delimiter.toString, content.str)))
+        else (value, List(StringLiteral(pre.str, delimiter.toString, content.str)))
+      }
     }
   }
 

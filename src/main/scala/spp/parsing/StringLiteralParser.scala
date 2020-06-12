@@ -13,7 +13,6 @@ object StringLiteralParser {
   def parse(sl: StringLiteral): Expr = {
     val prefix = sl.prefix.toLowerCase
     if (prefix.contains('f')) JoinedStr(parseFormattedStr(sl.prefix, 0, sl.value)._1)
-    else if (prefix.contains('b')) BytesConstant(decode(prefix, sl.value).get._1)
     else StringConstant(decode(prefix, sl.value).get._1)
   }
 
