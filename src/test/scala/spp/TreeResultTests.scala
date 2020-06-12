@@ -10,7 +10,7 @@ class TreeResultTests extends FlatSpec with Matchers {
     tree("basic-expressions") should matchPattern {
       case Module(Seq(
         ExprStmt(
-          BoolOp("and",
+          BoolOp("and", Seq(
             Compare(
               BinOp("+",
                 BinOp("+",
@@ -21,7 +21,7 @@ class TreeResultTests extends FlatSpec with Matchers {
               Seq(">"),
               Seq(IntConstant(_))
             ),
-            Compare(Name("x"), Seq("=="), Seq(BooleanConstant(true)))
+            Compare(Name("x"), Seq("=="), Seq(BooleanConstant(true))))
           )
         ),
         ExprStmt(BinOp("-", Name("x"), UnaryOp("-", IntConstant(_)))),
