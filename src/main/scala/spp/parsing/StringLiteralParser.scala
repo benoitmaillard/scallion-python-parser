@@ -13,14 +13,14 @@ object StringLiteralParser {
   def parse(sl: StringLiteral): Expr = {
     val prefix = sl.prefix.toLowerCase
     if (prefix.contains('f')) JoinedStr(parseFormattedStr(sl.prefix, 0, sl.value)._1)
-    else if (prefix.contains('b')) BytesConstant(decode(prefix, sl.value).get)
-    else StringConstant(decode(prefix, sl.value).get)
+    else if (prefix.contains('b')) BytesConstant(decode(prefix, sl.value).get._1)
+    else StringConstant(decode(prefix, sl.value).get._1)
   }
 
   // TODO: should probably return the position of the end of expr (or the remaining str ?)
   def parseFormattedStr(prefix: String, level: Int, str: String): (Seq[Expr], String) = {
-    val cstPart = StringDecoder.decode(prefix, str).get
-    val tailPart = str.drop(cstPart.length)
+    val (cstPart, length) = StringDecoder.decode(prefix, str).get
+    val tailPart = str.drop(length)
 
     // TODO: in the case were we encounter a '}', we must check that we are at level 0
     if (tailPart.isEmpty) (cstPartSeq(cstPart), "")
