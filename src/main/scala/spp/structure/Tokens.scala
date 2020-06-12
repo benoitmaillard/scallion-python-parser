@@ -30,12 +30,8 @@ object Tokens {
   final case class Delimiter(del: String) extends Token
   
   final case class EOF() extends Token
-  
-  // Intermediary tokens
-  final case class Space() extends Token
-  final case class Comment() extends Token
   final case class ErrorToken(msg: String) extends Token
-  final case class PhysicalIndent(length: Int) extends Token
+
 }
 
 object TokenClasses {
