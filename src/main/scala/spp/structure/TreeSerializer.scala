@@ -297,7 +297,7 @@ object TreeSerializer {
     case FormattedValue(value, conversion, format) =>
       mkName("FormattedValue") ~
       ("value" -> value) ~
-      ("conversion" -> conversion.map(_.toInt)) ~
+      ("conversion" -> conversion.map(_.toInt).getOrElse(-1)) ~
       ("format_spec" -> format)
     case JoinedStr(values) =>
       mkName("JoinedStr") ~
