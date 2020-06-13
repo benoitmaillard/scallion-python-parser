@@ -54,7 +54,7 @@ object StringLiteralParser {
     case _ => (None, str)
   }
 
-  def extractFormat(prefix: String, level: Int, str: String): (Option[Expr], String) = str.toSeq match {
+  def extractFormat(prefix: String, level: Int, str: String): (Option[JoinedStr], String) = str.toSeq match {
     case ':' +: format => {
       val (exprs, remaining) = parseFormattedStr(prefix, level + 1, format.mkString)
       (Some(JoinedStr(exprs)), remaining)
