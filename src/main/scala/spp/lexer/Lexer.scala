@@ -215,11 +215,11 @@ object Lexer extends Lexers {
   val longStringDq = longString('"')
   val longStringSq = longString('\'')
   val longBytesDq = longString('"', true)
-  val longBytesSq = longString('"', true)
+  val longBytesSq = longString('\'', true)
   val shortStringDq = shortString('"')
   val shortStringSq = shortString('\'')
   val shortBytesDq = shortString('"', true)
-  val shortBytesSq = shortString('"', true)
+  val shortBytesSq = shortString('\'', true)
 
   val physicalNewLine = oneOf("\n", "\r\n", "\r")
   val commentR = "#[^\n\r]*"
