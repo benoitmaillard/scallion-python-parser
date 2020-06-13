@@ -791,11 +791,11 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
 
   lazy val dictOrSetMaker: Syntax[Expr] =
     dictOrSetMaker1.up[Expr] | dictOrSetMaker2.up[Expr] | dictOrSetMaker3
-  lazy val dictOrSetMaker1: Syntax[Dict] = opU("**").skip ~ expr ~ opt(keyvalList) map ({
-    case e ~ next => Dict(KeyVal(None, e) +: next.getOrElse(Seq()))
+  lazy val dictOrSetMaker1: Syntax[Dict] = opU("**").skip ~ expr ~ keyvalList map ({
+    case e ~ next => Dict(KeyVal(None, e) +: next)
   })
-  lazy val dictOrSetMaker2: Syntax[Set] = starExpr ~ opt(seteltsList) map ({
-    case e ~ next => Set(e +: next.getOrElse(Seq()))
+  lazy val dictOrSetMaker2: Syntax[Set] = starExpr ~ seteltsList map ({
+    case e ~ next => Set(e +: next)
   })
   lazy val dictOrSetMaker3: Syntax[Expr] =
     test ~ (delU(":").skip ~ test ~ (compFor || keyvalList) || (compFor || seteltsList)) map ({
@@ -805,13 +805,17 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
       case e1 ~ Right(Right(vals)) => Set(e1 +: vals)
     })
 
-  lazy val keyvalList: Syntax[Seq[KeyVal]] = delU(",").skip ~ repseptr(keyval, delU(",")) /* [','] */
+  lazy val keyvalList: Syntax[Seq[KeyVal]] = opt(delU(",").skip ~ repseptr(keyval, delU(","))) map ({
+    case opt => opt.getOrElse(Seq())
+  }) /* [','] */
   lazy val keyval: Syntax[KeyVal] = test ~ delU(":").skip ~ test || opU("**").skip ~ expr map ({
     case Left(key ~ value) => KeyVal(Some(key), value)
     case Right(e) => KeyVal(None, e)
   })
 
-  lazy val seteltsList: Syntax[Seq[Expr]] = delU(",").skip ~ repseptr(test | starExpr, delU(",")) /* [','] */
+  lazy val seteltsList: Syntax[Seq[Expr]] = opt(delU(",").skip ~ repseptr(test | starExpr, delU(","))) map ({
+    case opt => opt.getOrElse(Seq())
+  })
   
   // None, True, False
   lazy val atomPredef: Syntax[Expr] = (kw("True") | kw("False") | kw("None") | op("...")) map ({

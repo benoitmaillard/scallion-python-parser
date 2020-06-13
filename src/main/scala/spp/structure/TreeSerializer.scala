@@ -254,7 +254,7 @@ object TreeSerializer {
       ("values" -> values)
     }
     case Set(elts) =>
-      mkName("elts") ~
+      mkName("Set") ~
       ("elts" -> elts)
     case ListComp(elt, generators) =>
       mkName("ListComp") ~
