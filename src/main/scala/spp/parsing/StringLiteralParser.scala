@@ -12,21 +12,25 @@ import scala.util.{Try, Success, Failure}
 object StringLiteralParser {
   def parse(sl: StringLiteral): Expr = {
     val prefix = sl.prefix.toLowerCase
-    if (prefix.contains('f')) JoinedStr(parseFormattedStr(sl.prefix, 0, sl.value)._1)
+    if (prefix.contains('f')) JoinedStr(parseFormattedStr(sl.prefix, sl.value)._1)
     else StringConstant(decode(prefix, sl.value).get._1)
   }
-
   // TODO: should probably return the position of the end of expr (or the remaining str ?)
-  def parseFormattedStr(prefix: String, level: Int, str: String): (Seq[Expr], String) = {
+  def parseFormattedStr(prefix: String, str: String): (Seq[Expr], String) = {
     val (cstPart, length) = StringDecoder.decode(prefix, str).get
     val tailPart = str.drop(length)
 
-    // TODO: in the case were we encounter a '}', we must check that we are at level 0
+    // TODO: use a match instead
     if (tailPart.isEmpty) (cstPartSeq(cstPart), "")
     else if (tailPart.head == '}') (cstPartSeq(cstPart), tailPart)
     else {
-      val (fValue, remaining) = parseFromExpr(prefix, level, tailPart.drop(1)) // we drop the '{'
-      val (exprsAfter, remainingAfter) = parseFormattedStr(prefix, level, remaining)
+      // parse the entirety of the replacement field
+      val (fValue, remaining) = parseFromExpr(prefix, tailPart.drop(1)) // we drop the '{'
+
+      // parse what remains after the replacement field
+      val (exprsAfter, remainingAfter) = parseFormattedStr(prefix, remaining)
+
+      // assemble everything together, remainingAfter is the string left to parse at a higher level
       ((cstPartSeq(cstPart) :+ fValue) ++ exprsAfter, remainingAfter)
     }
   }
@@ -36,7 +40,7 @@ object StringLiteralParser {
     else Seq()
 
   // str starts with first char after '{'
-  def parseFromExpr(prefix: String, level: Int, str: String): (FormattedValue, String) = {
+  def parseFromExpr(prefix: String, str: String): (FormattedValue, String) = {
     // TODO: should check if string is empty (missing })
     val (exprTokens, afterExpr) = extractExpr(str)
 
@@ -44,7 +48,7 @@ object StringLiteralParser {
     val expr = Parser.parseExpr(exprTokens)
     
     val (conversion, afterConversion) = extractConversion(afterExpr)
-    val (format, afterFormat) = extractFormat(prefix, level, afterConversion)
+    val (format, afterFormat) = extractFormat(prefix, afterConversion)
 
     (FormattedValue(expr, conversion, format), afterFormat.drop(1)) // we drop terminating '}'
   }
@@ -54,9 +58,9 @@ object StringLiteralParser {
     case _ => (None, str)
   }
 
-  def extractFormat(prefix: String, level: Int, str: String): (Option[JoinedStr], String) = str.toSeq match {
+  def extractFormat(prefix: String, str: String): (Option[JoinedStr], String) = str.toSeq match {
     case ':' +: format => {
-      val (exprs, remaining) = parseFormattedStr(prefix, level + 1, format.mkString)
+      val (exprs, remaining) = parseFormattedStr(prefix, format.mkString)
       (Some(JoinedStr(exprs)), remaining)
     }
     case _ => (None, str)
