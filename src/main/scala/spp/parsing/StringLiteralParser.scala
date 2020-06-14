@@ -44,8 +44,10 @@ object StringLiteralParser {
     // TODO: should check if string is empty (missing })
     val (exprTokens, afterExpr) = extractExpr(str)
 
+    val tokensWithParens = Delimiter("(") +: exprTokens :+ Delimiter(")")
+
     // TODO: should check if expression is empty (and valid, think of lambda case)
-    val expr = Parser.parseExpr(exprTokens)
+    val expr = Parser.parseExpr(tokensWithParens.iterator)
     
     val (conversion, afterConversion) = extractConversion(afterExpr)
     val (format, afterFormat) = extractFormat(prefix, afterConversion)
@@ -68,14 +70,14 @@ object StringLiteralParser {
   
   // Finds the tokens of the expression and the remaining input from the first char
   // after the expression (this would be either '!', ':' or '}')
-  def extractExpr(str: String): (Iterator[Token], String) = {
+  def extractExpr(str: String): (Seq[Token], String) = {
     val tokens = Lexer.applyString(str).toList
 
     // we are looking for 3 things : !, :, } at level 0
     // TODO: add surrounding parentheses !!! (maybe rather in extractExpr)
     val (exprTokens, tokenAfter) = findExprEnd(tokens, List()).get
 
-    (exprTokens.iterator, str.substring(tokenAfter.position.col))
+    (exprTokens, str.substring(tokenAfter.position.col))
   }
 
   def findExprEnd(tokens: List[Token], stack: List[String]): Try[(List[Token], Token)] = {
