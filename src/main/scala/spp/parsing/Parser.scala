@@ -821,9 +821,13 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
     dictOrSetMaker1.up[Expr] | dictOrSetMaker2.up[Expr] | dictOrSetMaker3
   lazy val dictOrSetMaker1: Syntax[Dict] = opU("**").skip ~ expr ~ keyvalList map ({
     case e ~ next => Dict(KeyVal(None, e) +: next)
+  }, {
+    case Dict(KeyVal(None, e) +: next) => Seq(e ~ next)
   })
   lazy val dictOrSetMaker2: Syntax[Set] = starExpr ~ seteltsList map ({
     case e ~ next => Set(e +: next)
+  }, {
+    case Set(e +: next) => Seq(e ~ next)
   })
   lazy val dictOrSetMaker3: Syntax[Expr] =
     test ~ (delU(":").skip ~ test ~ (compFor || keyvalList) || (compFor || seteltsList)) map ({
@@ -831,18 +835,32 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
       case e1 ~ Left(e2 ~ Right(keyvals)) => Dict(KeyVal(Some(e1), e2) +: keyvals)
       case e1 ~ Right(Left(comp)) => SetComp(e1, comp)
       case e1 ~ Right(Right(vals)) => Set(e1 +: vals)
+    }, {
+      case DictComp(KeyVal(Some(e1), e2), comp) => Seq(e1 ~ Left(e2 ~ Left(comp)))
+      case Dict(KeyVal(Some(e1), e2) +: keyvals) => Seq(e1 ~ Left(e2 ~ Right(keyvals)))
+      case SetComp(e1, comp) => Seq(e1 ~ Right(Left(comp)))
+      case Set(e1 +: vals) => Seq(e1 ~ Right(Right(vals)))
     })
 
   lazy val keyvalList: Syntax[Seq[KeyVal]] = opt(delU(",").skip ~ repseptr(keyval, delU(","))) map ({
     case opt => opt.getOrElse(Seq())
-  }) /* [','] */
+  }, {
+    case Seq() => Seq(None)
+    case seq => Seq(Some(seq))
+  })
   lazy val keyval: Syntax[KeyVal] = test ~ delU(":").skip ~ test || opU("**").skip ~ expr map ({
     case Left(key ~ value) => KeyVal(Some(key), value)
     case Right(e) => KeyVal(None, e)
+  }, {
+    case KeyVal(Some(key), value) => Seq(Left(key ~ value))
+    case KeyVal(None, e) => Seq(Right(e))
   })
 
   lazy val seteltsList: Syntax[Seq[Expr]] = opt(delU(",").skip ~ repseptr(test | starExpr, delU(","))) map ({
     case opt => opt.getOrElse(Seq())
+  }, {
+    case Seq() => Seq(None)
+    case seq => Seq(Some(seq))
   })
   
   // None, True, False
