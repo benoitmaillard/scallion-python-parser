@@ -803,7 +803,7 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
     case Right((exprs, _)) => PythonList(exprs)
   }, {
     case ListComp(e, comps) => Seq(Left((e, comps)))
-    case PythonList(exprs) => Seq(Right(exprs, false))
+    case PythonList(exprs) => Seq(Right(exprs, true))
     case _ => Seq()
   })
 
@@ -958,21 +958,33 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
       case Right((Seq(e), false)) => Seq(e ~ Right(None))
       case _ => Seq()
     })
+
+  lazy val compFor: Syntax [Seq[Comprehension]] =
+    opt(kw("async")) ~ compFor2 map ({
+      case optAsync ~ (head +: tail) => head.copy(async = optAsync.isDefined) +: tail
+    }, {
+      case head +: tail => Seq((if (head.async) Some("async") else None) ~ (head.copy(async = false) +: tail))
+    })
   
-  lazy val compFor: Syntax[Seq[Comprehension]] = /*[async]*/
-    opt(kwU("async")) ~ kwU("for").skip ~ exprList ~ kwU("in").skip ~ orTest ~ opt(compIter) map ({
-      case async ~ ((forExps, isTuple)) ~ inExp ~ optFollow => optFollow match {
-        case None => Seq(Comprehension(if (isTuple) Tuple(forExps) else singleExprOrTuple(forExps), inExp, Seq.empty, async.isDefined))
+  lazy val compFor2: Syntax[Seq[Comprehension]] =
+    kwU("for").skip ~ exprList ~ kwU("in").skip ~ orTest ~ opt(compIter) map ({
+      case ((forExps, isTuple)) ~ inExp ~ optFollow => optFollow match {
+        case None => Seq(Comprehension(if (isTuple) Tuple(forExps) else singleExprOrTuple(forExps), inExp, Seq.empty, false))
         case Some((ifs, comps)) => {
-          val headComp = Comprehension(singleExprOrTuple(forExps), inExp, ifs, async.isDefined)
+          val headComp = Comprehension(if (isTuple) Tuple(forExps) else singleExprOrTuple(forExps), inExp, ifs, false)
           headComp +: comps
         }
       }
-    }/*, {
-      case Seq(Comprehension(target, iter, Seq())) => Seq((Seq(target), false) ~ iter ~ None)
-      case Comprehension(target, iter, ifs) :: tail => Seq((Seq(target), false) ~ iter ~ Some(ifs, tail))
-      case _ => Seq()
-    }*/)
+    }, {
+      case Seq(Comprehension(Tuple(forExps), inExp, Seq(), false)) => 
+        Seq(((forExps, true)) ~ inExp ~ None)
+      case Seq(Comprehension(e, inExp, Seq(), false)) =>
+        Seq(((Seq(e), false)) ~ inExp ~ None)
+      case Comprehension(Tuple(forExps), inExp, ifs, async) +: tail =>
+        Seq(((forExps, true)) ~ inExp ~ Some(ifs, tail))
+      case Comprehension(e, inExp, ifs, async) +: tail =>
+        Seq(((Seq(e), false)) ~ inExp ~ Some(ifs, tail))
+    })
   
   lazy val compIf: Syntax[(Seq[Expr], Seq[Comprehension])] =
     kwU("if").skip ~ testNoCond ~ opt(compIter) map ({
