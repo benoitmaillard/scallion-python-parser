@@ -9,21 +9,17 @@ import java.io.File
 import org.json4s._
 import org.json4s.native.JsonMethods._
 import org.json4s.JsonDSL._
+import spp.structure.AbstractSyntaxTree.Module
 
 object Main {
   def main(args: Array[String]): Unit = args(0) match {
     case "tokenize" => Lexer(args(1)).foreach(println(_))
-    case "parse" => {
-      val tokens = Lexer(args(1))
-      val tree = Parser(tokens)
-
-      println(tree)
-    }
-    case "compare" => {
-      val tokens = Lexer(args(1))
-      val tree = Parser(tokens)
-      
-      compare(args(2), tree)
-    }
+    case "parse" => 
+      println(parse(args(1)))
+    case "compare" =>     
+      compare(args(2), parse(args(1)))
+    case "pprint" => println(Parser.unapply(parse(args(1))).get)
   }
+
+  def parse(path: String): Module = Parser(Lexer(path))
 }
