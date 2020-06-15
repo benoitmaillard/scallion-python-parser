@@ -21,5 +21,9 @@ object Main {
     case "pprint" => println(Parser.unapply(parse(args(1))).get)
   }
 
-  def parse(path: String): Module = Parser(Lexer(path))
+  def parse(path: String): Module = {
+    val tree = Parser(Lexer(path))
+    TreeValidation.validate(tree).get
+    tree
+  }
 }
