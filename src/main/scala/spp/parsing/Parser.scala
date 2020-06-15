@@ -178,6 +178,12 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
     case f:FunctionDef => f.copy(async = true)
     case w:With => w.copy(async = true)
     case f:For => f.copy(async = true)
+  }, {
+    // funcDef, withStmt and forStmt only accept async=false to force unapply to go through asyncStmt
+    case f@FunctionDef(_, _, _, _, _, true) => Seq(f.copy(async = false))
+    case w@With(_, _, true) => Seq(w.copy(async = false))
+    case f@For(_, _, _, _, true) => Seq(f.copy(async = false))
+    case _ => Seq()
   })
 
   def optSuite(keyword: String): Syntax[Seq[Statement]] =
@@ -224,10 +230,10 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
     optSuite("else") map ({
       case (target, isTuple) ~ iter ~ body ~ orElse =>
         For(if (isTuple) Tuple(target) else singleExprOrTuple(target), iter, body, orElse)
-    }/*, {
-      case For(Tuple(seq), iter, body, orElse) => Seq(seq ~ iter ~ body ~ orElse)
-      case For(target, iter, body, orElse) => Seq(Seq(target) ~ iter ~ body ~ orElse)
-    }*/)
+    }, {
+      case For(Tuple(seq), iter, body, orElse, false) => Seq((seq, true) ~ iter ~ body ~ orElse)
+      case For(target, iter, body, orElse, false) => Seq((Seq(target), false) ~ iter ~ body ~ orElse)
+    })
 
   lazy val tryStmt: Syntax[Statement] =
     kwU("try").skip ~ delU(":").skip ~ suiteStmt ~
@@ -259,7 +265,7 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
     kwU("with").skip ~ rep1sep(withItem, delU(",")) ~ delU(":").skip ~ suiteStmt map ({
       case items ~ suite => With(items, suite)
     }, {
-      case With(items, suite, _) => Seq(items ~ suite)
+      case With(items, suite, false) => Seq(items ~ suite)
       case _ => Seq()
     })
 
@@ -275,7 +281,7 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
     kwU("async").skip ~ funcDef map ({
       case f => f.copy(async = true)
     }, {
-      case f@FunctionDef(_, _, _, _, _, true) => Seq(f)
+      case f@FunctionDef(_, _, _, _, _, true) => Seq(f.copy(async = false))
       case _ => Seq()
     })
 
@@ -284,7 +290,7 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
     delU(":").skip ~ suiteStmt map ({
       case name ~ params ~ optReturnType ~ body => FunctionDef(name, params, body, Seq(), optReturnType)
     }, {
-      case FunctionDef(name, params, body, Seq(), optReturnType, _) =>
+      case FunctionDef(name, params, body, Seq(), optReturnType, false) =>
         Seq(name ~ params ~ optReturnType ~ body)
       case _ => Seq()
     })
