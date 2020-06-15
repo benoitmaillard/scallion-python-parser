@@ -309,28 +309,44 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
     tfpdefDefault ~ typedArgsList2 || typedArgsList3 map ({
       case Left(arg ~ ((args, varargs, kwonly, kwargs))) => (arg +: args, varargs, kwonly, kwargs)
       case Right((varargs, kwonly, kwargs)) => (Seq(), varargs, kwonly, kwargs)
+    }, {
+      case (Seq(), varargs, kwonly, kwargs) => Seq(Right((varargs, kwonly, kwargs)))
+      case (arg +: args, varargs, kwonly, kwargs) => Seq(Left(arg ~ ((args, varargs, kwonly, kwargs))))
     })
   lazy val typedArgsList2: Syntax[(Seq[Arg], Option[Arg], Seq[Arg], Option[Arg])] = recursive(
     opt(delU(",").skip ~ (tfpdefDefault ~ typedArgsList2 || opt(typedArgsList3))) map ({
       case Some(Left(arg ~ ((args, varargs, kwonly, kwargs)))) => (arg +: args, varargs, kwonly, kwargs)
       case Some(Right(Some((varargs, kwonly, kwargs)))) => (Seq(), varargs, kwonly, kwargs)
-      case _ => (Seq(), None, Seq(), None)
+      case _ => (Seq(), None, Seq(), None) // TODO should be case None maybe ?
+    }, {
+      case (Seq(), None, Seq(), None) => Seq(None)
+      case (Seq(), varargs, kwonly, kwargs) => Seq(Some(Right(Some((varargs, kwonly, kwargs)))))
+      case (arg +: args, varargs, kwonly, kwargs) => Seq(Some(Left(arg ~ ((args, varargs, kwonly, kwargs)))))
     }))
   lazy val typedArgsList3: Syntax[(Option[Arg], Seq[Arg], Option[Arg])] =
     typedArgsList4 || opU("**").skip ~ tfpdef ~ opt(delU(",")) map ({
       case Left(args) => args
       case Right(arg ~ _) => (None, Seq(), Some(arg))
+    }, {
+      case (None, Seq(), Some(arg)) => Seq(Right(arg ~ None))
+      case args => Seq(Left(args))
     })
     
   lazy val typedArgsList4: Syntax[(Option[Arg], Seq[Arg], Option[Arg])] =
     opU("*").skip ~ opt(tfpdef) ~ typedArgsList5 map ({
       case optArg ~ ((kwonly, kwargs)) => (optArg, kwonly, kwargs)
+    }, {
+      case (optArg, kwonly, kwargs) => Seq(optArg ~ ((kwonly, kwargs)))
     })
   lazy val typedArgsList5: Syntax[(Seq[Arg], Option[Arg])] = recursive(
     opt(delU(",").skip ~ (tfpdefDefault ~ typedArgsList5 || opt(opU("**").skip ~ tfpdef ~ opt(delU(","))))) map ({
       case Some(Left(arg ~ ((kwonly, kwargs)))) => (arg +: kwonly, kwargs)
       case Some(Right(Some(kwargs ~ _))) => (Seq(), Some(kwargs))
-      case _ => (Seq(), None)
+      case _ => (Seq(), None) // TODO should be case None for readability
+    }, {
+      case (Seq(), None) => Seq(None)
+      case (Seq(), Some(kwargs)) => Seq(Some(Right(Some(kwargs ~ None))))
+      case (arg +: kwonly, kwargs) => Seq(Some(Left(arg ~ ((kwonly, kwargs)))))
     })
   )
 
