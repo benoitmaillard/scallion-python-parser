@@ -14,10 +14,20 @@ object Main {
   def main(args: Array[String]): Unit = args(0) match {
     case "tokenize" => Lexer(args(1)).foreach(println(_))
     case "parse" => {
+
+      val toMilli = Math.pow(10.0, -6.0)
+      
+      val startT = System.nanoTime
       val tokens = Lexer(args(1))
+
+      val lexerT = (System.nanoTime - startT) * toMilli
+
       val tree = Parser(tokens)
 
-      println(tree)
+      val totalT = (System.nanoTime - startT) * toMilli
+      println("Execution time")
+      println(f"  - Lexer : $lexerT")
+      println(f"  - Total : $totalT")
     }
     case "compare" => {
       val tokens = Lexer(args(1))
