@@ -28,34 +28,47 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
   })
 
   // separator can optionnally appear at the end and at least one repetition is required
-  def rep1septr[A, B](rep: Syntax[A], sep: Syntax[B]): Syntax[Seq[A]] = {
-    lazy val synt: Syntax[Seq[A]] = recursive(rep ~ opt(sep ~ opt(synt))) map ({
-      case r ~ Some(_ ~ Some(f)) => r +: f
+  def rep1septr[A, B](rep: Syntax[A], sep: Syntax[Unit]): Syntax[Seq[A]] = {
+    lazy val synt: Syntax[Seq[A]] = recursive(rep ~ opt(sep.skip ~ opt(synt))) map ({
+      case r ~ Some(Some(f)) => r +: f
       case r ~ _ => Seq(r)
+    }, {
+      case Seq(r) => Seq(r ~ None)
+      case r +: f => Seq(r ~ Some(Some(f)))
     })
     synt
   }
 
   // separator can optionnally appear at the end and 0 repetitions is accepted
-  def repseptr[A, B](rep: Syntax[A], sep: Syntax[B]): Syntax[Seq[A]] =
+  def repseptr[A, B](rep: Syntax[A], sep: Syntax[Unit]): Syntax[Seq[A]] =
     opt(rep1septr(rep, sep)) map({
       case Some(seq) => seq
       case None => Seq()
+    }, {
+      case Seq() => Seq(None)
+      case seq => Seq(Some(seq))
     })
   
   // the boolean is true if there is a trailing separator or more than 1 element
-  def rep1septrWithOpt[A, B](rep: Syntax[A], sep: Syntax[B]): Syntax[(Seq[A], Boolean)] = {
-    lazy val synt: Syntax[(Seq[A], Boolean)] = recursive(rep ~ opt(sep ~ opt(synt))) map ({
-      case r ~ Some(_ ~ Some(f)) => (r +: f._1, true)
+  def rep1septrWithOpt[A, B](rep: Syntax[A], sep: Syntax[Unit]): Syntax[(Seq[A], Boolean)] = {
+    lazy val synt: Syntax[(Seq[A], Boolean)] = recursive(rep ~ opt(sep.skip ~ opt(synt))) map ({
+      case r ~ Some(Some(f)) => (r +: f._1, true)
       case r ~ opLast => (Seq(r), opLast.isDefined)
+    }, {
+      case (Seq(r), true) => Seq(r ~ Some(None))
+      case (Seq(r), false) => Seq(r ~ None)
+      case (r +: f, bool) => Seq(r ~ Some(Some(f, bool)))
     })
     synt
   }
 
-  def repseptrWithOpt[A, B](rep: Syntax[A], sep: Syntax[B]): Syntax[(Seq[A], Boolean)] = {
+  def repseptrWithOpt[A, B](rep: Syntax[A], sep: Syntax[Unit]): Syntax[(Seq[A], Boolean)] = {
     opt(rep1septrWithOpt(rep, sep)) map({
       case Some(seq) => seq
       case None => (Seq(), false)
+    }, {
+      case (Seq(), false) => Seq(None)
+      case seq => Seq(Some(seq))
     })
   }
 
@@ -601,6 +614,7 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
       case None ~ e => Lambda(Arguments(Seq(), None, Seq(), None), e)
     })
 
+  // TODO unapply
   lazy val lambdefNoCond: Syntax[Expr] =
     kwU("lambda").skip ~ opt(varArgsList) ~ delU(":").skip ~ testNoCond map ({
       case Some((args, varargs, kwonly, kwargs)) ~ e => Lambda(Arguments(args, varargs, kwonly, kwargs), e)
@@ -612,6 +626,7 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
     case values => BoolOp("or", values)
   }, {
     case BoolOp("or", values) => Seq(values)
+    case value => Seq(Seq(value))
   })
 
 
@@ -620,6 +635,7 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
     case values => BoolOp("and", values)
   }, {
     case BoolOp("and", values) => Seq(values)
+    case value => Seq(Seq(value))
   })
 
   lazy val notTest: Syntax[Expr] = comparison | recursive(
@@ -687,12 +703,18 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
   lazy val factor: Syntax[Expr] = recursive((op("+") | op("-") | op("~")) ~ factor || power) map ({
     case Left(o ~ e) => UnaryOp(o, e)
     case Right(e) => e
+  }, {
+    case UnaryOp(o, e) => Seq(Left(o ~ e))
+    case e => Seq(Right(e))
   })
 
   // operators can not be used because of asymmetry (atomExpr - factor)
   lazy val power: Syntax[Expr] = atomExprAwait ~ opt(opU("**").skip ~ factor) map ({
     case left ~ None => left
     case left ~ Some(right) => BinOp("**", left, right)
+  }, {
+    case BinOp("**", left, right) => Seq(left ~ Some(right))
+    case left => Seq(left ~ None)
   })
 
   lazy val atomExprAwait: Syntax[Expr] = opt(kw("await")) ~ atomExpr map({
