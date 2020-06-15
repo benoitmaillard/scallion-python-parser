@@ -805,10 +805,14 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
       case head :: Nil => head
       case parts => JoinedStr(parts)
     }
+  }, {
+    case StringConstant(value) => Seq(Seq(StringConstant(value)))
   })
 
   lazy val atomBytes: Syntax[Expr] = many1(bytes) map ({
     case seq => BytesConstant(seq.map(_.value).mkString)
+  }, {
+    case BytesConstant(value) => Seq(Seq(BytesConstant(value)))
   })
 
   // parenthesized expression
