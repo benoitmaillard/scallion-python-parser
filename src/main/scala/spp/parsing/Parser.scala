@@ -137,6 +137,7 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
   })
 
   lazy val module: Syntax[Module] = (many(stmt) ~ eof.skip) map ({ // TODO doc says there could be NEWLINE only ??
+    case Seq() => Module(Seq())
     case seq => Module(seq.reduceLeft(_ ++ _))
   }, {
     case Module(statements) =>{
