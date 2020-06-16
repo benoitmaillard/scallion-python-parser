@@ -94,7 +94,7 @@ object StringDecoder extends Lexers {
   
       lexer.tokenizeFromString(value) match {
         case Failure(exception) => Failure(exception)
-        case Success(res) => {
+        case Success((res, finalState)) => {
           // position where lexer stopped (useful for f-strings)
           val end = res.lastOption.map(_.end.index).getOrElse(0)
           val str = Try(res.map(_.value.get))
