@@ -92,9 +92,9 @@ object TreeValidation {
           reduce(args, vararg, kwonly, kwarg, validateArgumentNames(arguments))
         case Arg(arg, annotation, default) => reduce(annotation, default)
         case KeyVal(key, value) => reduce(key, value)
-        case PosArg(value) => value
-        case KeywordArg(arg, value) => println(arg);arg.map(validateName(_)).getOrElse(Success())
-        case Comprehension(target, iter, ifs, async) => reduce(target, validateAssignable(iter), ifs)
+        case PosArg(value) => value 
+        case KeywordArg(arg, value) => arg.map(validateName(_)).getOrElse(Success())
+        case Comprehension(target, iter, ifs, async) => reduce(validateAssignable(target), iter, ifs)
         case Alias(name, asname) => Success()
         case ExceptionHandler(tpe, name, body) => reduce(tpe, body)
         case WithItem(contextExpr, optionalVars) => reduce(contextExpr, optionalVars)
