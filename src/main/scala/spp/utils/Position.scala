@@ -4,6 +4,10 @@ import java.io.File
 
 import scallion.input.Positioner
 
+/**
+  * File taken from Amy template : https://lara.epfl.ch/w/cc19/top
+  */
+
 object Position {
   /** Number of bits used to encode the line number */
   private final val LINE_BITS   = 20
@@ -38,7 +42,6 @@ case class SourcePosition(file: File, line: Int, col: Int) extends Position {
   val isDefined = true
 }
 
-// TODO handle positions properly
 case class StringPosition(index: Int, override val str: String) extends Position {
   val file = null
   val line = 0
