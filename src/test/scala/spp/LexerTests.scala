@@ -20,10 +20,6 @@ class LexerTests extends OutputComparisonSpec {
         outputMatch("empty-lines-test")
     }
 
-    it should "produce only EOF token for empty file" in {
-        outputMatch("empty")
-    }
-
     it should "tokenize a single-line input file correctly" in {
         outputMatch("single-line")
     }
