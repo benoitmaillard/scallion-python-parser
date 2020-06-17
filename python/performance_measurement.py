@@ -25,7 +25,7 @@ def parse_dir(path):
         parse(x)
 
     end = time.time()
-    print(end - start)
+    print(f"Total time : {end - start}")
 
 if __name__ == "__main__":
     main(sys.argv[1:])
