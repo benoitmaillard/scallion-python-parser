@@ -5,7 +5,7 @@ import os
 import time
 
 def main(argv):
-    parse_dir(argv[1])
+    parse_dir(argv[0])
 
 def parse(path):
     with open(path, 'r') as f:
