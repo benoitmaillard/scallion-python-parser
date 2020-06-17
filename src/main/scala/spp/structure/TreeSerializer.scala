@@ -14,8 +14,11 @@ import scala.language.implicitConversions
 import AbstractSyntaxTree._
 import scala.io.Source
 
+/**
+  * Tools to encode a syntax tree in JSON
+  */
 object TreeSerializer {
-  implicit def option2jvalue[A](opt: Option[A])(implicit ev: A => JValue): JValue = opt match {
+  private implicit def option2jvalue[A](opt: Option[A])(implicit ev: A => JValue): JValue = opt match {
     case Some(x) => x
     case None => JNull // a JNothing value is returned by default (hiding None values)
   }
@@ -28,6 +31,13 @@ object TreeSerializer {
     */
   def serialize(module: Module): Document = render(serializeNode(module))
 
+  /**
+    * Compares a module with a reference json file (that should be produced by CPython).
+    * Both files are always saved under debug/ref.json and debug/output.json
+    *
+    * @param refPath path of the reference JSON tree
+    * @param module module to compare
+    */
   def compare(refPath: String, module: Module) = {
     val refJSON = Source.fromFile(refPath).mkString
     val ref = parse(refJSON)
@@ -47,16 +57,16 @@ object TreeSerializer {
     println(f"deleted : $deleted")
   }
 
-  def saveJSON(path: String, value: JValue) = {
+  private def saveJSON(path: String, value: JValue) = {
     val file = new File(path)
     val bw = new BufferedWriter(new FileWriter(file))
     bw.write(pretty(render(value)))
     bw.close()
   }
 
-  def mkName(name: String): (String, String) = ("nodeName" -> name)
+  private def mkName(name: String): (String, String) = ("nodeName" -> name)
 
-  def splitCallArgs(rawArgs: Seq[CallArg]): (Seq[PosArg], Seq[KeywordArg]) =
+  private def splitCallArgs(rawArgs: Seq[CallArg]): (Seq[PosArg], Seq[KeywordArg]) =
     rawArgs.foldLeft(Seq.empty[PosArg], Seq.empty[KeywordArg]){
       case ((args, kwargs), cur) => cur match {
         case arg:PosArg => (args :+ arg, kwargs)
@@ -64,7 +74,7 @@ object TreeSerializer {
       }
     }
 
-  def mkOp(op: String): JValue = mkName(Map(
+  private def mkOp(op: String): JValue = mkName(Map(
     "and" -> "And",
     "or" -> "Or",
 
@@ -108,14 +118,14 @@ object TreeSerializer {
     "not in" -> "NotIn",
   )(op))
 
-  def mkUnOp(op: String): JValue = mkName(Map(
+  private def mkUnOp(op: String): JValue = mkName(Map(
     "~" -> "Invert",
     "not" -> "Not",
     "+" -> "UAdd",
     "-" -> "USub"
   )(op))
 
-  implicit def serializeSeq[A <: Tree](seq: Seq[A]): JArray = seq.map(serializeNode)
+  private implicit def serializeSeq[A <: Tree](seq: Seq[A]): JArray = seq.map(serializeNode)
 
   /**
     * Creates a JSON object for a node
@@ -123,7 +133,7 @@ object TreeSerializer {
     * @param node node to encode
     * @return JSON object representing the node
     */
-  implicit def serializeNode(node: Tree): JValue = node match {
+  private implicit def serializeNode(node: Tree): JValue = node match {
     case Module(body) => mkName("Module") ~ ("body" -> serializeSeq(body))
 
     // statements
