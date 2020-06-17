@@ -34,7 +34,7 @@ $ python python/performance_measurement.py <folder_path>
 
 First, we have to export the tree to JSON with Python
 ```
-python python/tree_serializer.py json examples/pprint_test.py examples/pprint_test.json
+$ python python/tree_serializer.py json examples/pprint_test.py examples/pprint_test.json
 ```
 
 After that, we can run the comparison from SBT. The tree produced
