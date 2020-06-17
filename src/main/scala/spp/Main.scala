@@ -24,6 +24,10 @@ object Main {
       val tree = Parser(tokens)
       compare(args(2), tree)
     }
+    case "pprint" => {
+      val tree = Parser(Lexer(args(1)))
+      println(Parser.unapply(tree).get)
+    }
     case "parsedir" => {
       parseDirMeasured(args(1))
     }
