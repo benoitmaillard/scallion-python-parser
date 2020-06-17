@@ -10,17 +10,22 @@ import spp.structure.Tokens._
 import scala.util.{Try, Success, Failure}
 
 object StringLiteralParser {
+
+  /**
+    * Transforms a string literal into a constant node
+    *
+    * @param sl string literal
+    * @return expression
+    */
   def parse(sl: StringLiteral): Expr = {
     val prefix = sl.prefix.toLowerCase
     if (prefix.contains('f')) JoinedStr(parseFormattedStr(sl.prefix, sl.value)._1)
     else StringConstant(decode(prefix, sl.value).get._1)
   }
-  // TODO: should probably return the position of the end of expr (or the remaining str ?)
   def parseFormattedStr(prefix: String, str: String): (Seq[Expr], String) = {
     val (cstPart, length) = StringDecoder.decode(prefix, str).get
     val tailPart = str.drop(length)
 
-    // TODO: use a match instead
     if (tailPart.isEmpty) (cstPartSeq(cstPart), "")
     else if (tailPart.head == '}') (cstPartSeq(cstPart), tailPart)
     else {
@@ -35,18 +40,16 @@ object StringLiteralParser {
     }
   }
 
-  def cstPartSeq(part: String): Seq[Expr] =
+  private def cstPartSeq(part: String): Seq[Expr] =
     if (!part.isEmpty) Seq(StringConstant(part))
     else Seq()
 
   // str starts with first char after '{'
-  def parseFromExpr(prefix: String, str: String): (FormattedValue, String) = {
-    // TODO: should check if string is empty (missing })
+  private def parseFromExpr(prefix: String, str: String): (FormattedValue, String) = {
     val (exprTokens, afterExpr) = extractExpr(str)
 
     val tokensWithParens = Delimiter("(") +: exprTokens :+ Delimiter(")")
 
-    // TODO: should check if expression is empty (and valid, think of lambda case)
     val expr = Parser.parseExpr(tokensWithParens.iterator)
     
     val (conversion, afterConversion) = extractConversion(afterExpr)
@@ -55,12 +58,12 @@ object StringLiteralParser {
     (FormattedValue(expr, conversion, format), afterFormat.drop(1)) // we drop terminating '}'
   }
 
-  def extractConversion(str: String): (Option[Char], String) = str.toSeq match {
+  private def extractConversion(str: String): (Option[Char], String) = str.toSeq match {
     case '!' +: c +: tail => (Some(c), tail.mkString)
     case _ => (None, str)
   }
 
-  def extractFormat(prefix: String, str: String): (Option[JoinedStr], String) = str.toSeq match {
+  private def extractFormat(prefix: String, str: String): (Option[JoinedStr], String) = str.toSeq match {
     case ':' +: format => {
       val (exprs, remaining) = parseFormattedStr(prefix, format.mkString)
       (Some(JoinedStr(exprs)), remaining)
@@ -70,7 +73,7 @@ object StringLiteralParser {
   
   // Finds the tokens of the expression and the remaining input from the first char
   // after the expression (this would be either '!', ':' or '}')
-  def extractExpr(str: String): (Seq[Token], String) = {
+  private def extractExpr(str: String): (Seq[Token], String) = {
     val tokens = Lexer.applyString(str).toList
 
     // we are looking for 3 things : !, :, } at level 0
@@ -80,7 +83,7 @@ object StringLiteralParser {
     (exprTokens, str.substring(tokenAfter.position.col))
   }
 
-  def findExprEnd(tokens: List[Token], stack: List[String]): Try[(List[Token], Token)] = {
+  private def findExprEnd(tokens: List[Token], stack: List[String]): Try[(List[Token], Token)] = {
     val delimiterMap = Map("{" -> "}", "[" -> "]", "(" -> ")")
 
     def findExprEndAcc(tokens: List[Token], stack: List[String], acc: List[Token]): Try[(List[Token], Token)] = tokens match {

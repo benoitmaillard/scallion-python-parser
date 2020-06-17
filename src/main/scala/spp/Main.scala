@@ -1,5 +1,4 @@
 package spp
-import utils._
 import spp.parsing._
 import spp.lexer._
 import spp.structure.TreeSerializer._

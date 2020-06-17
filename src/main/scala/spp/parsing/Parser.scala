@@ -3,7 +3,6 @@ package spp.parsing
 import scallion.syntactic._
 import scallion.syntactic.Unfolds._
 
-import spp.utils._
 import spp.structure._
 import spp.structure.AbstractSyntaxTree._
 import spp.parsing._
@@ -149,7 +148,7 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
     case _ => Seq()
   })
 
-  lazy val module: Syntax[Module] = (many(stmt) ~ eof.skip) map ({ // TODO doc says there could be NEWLINE only ??
+  lazy val module: Syntax[Module] = (many(stmt) ~ eof.skip) map ({
     case Seq() => Module(Seq())
     case seq => Module(seq.reduceLeft(_ ++ _))
   }, {
@@ -169,7 +168,7 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
     }))
 
   // One or more smallStmt on a single line
-  lazy val simpleStmt: Syntax[Seq[Statement]] = // TODO check why this makes the tests fail (wtf ??)
+  lazy val simpleStmt: Syntax[Seq[Statement]] =
     rep1septr(smallStmt, delU(";")) ~ newLine.skip
 
   lazy val compoundStmt: Syntax[Statement] = ifStmt | whileStmt | forStmt | tryStmt |
@@ -318,7 +317,7 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
     opt(delU(",").skip ~ (tfpdefDefault ~ typedArgsList2 || opt(typedArgsList3))) map ({
       case Some(Left(arg ~ ((args, varargs, kwonly, kwargs)))) => (arg +: args, varargs, kwonly, kwargs)
       case Some(Right(Some((varargs, kwonly, kwargs)))) => (Seq(), varargs, kwonly, kwargs)
-      case _ => (Seq(), None, Seq(), None) // TODO should be case None maybe ?
+      case _ => (Seq(), None, Seq(), None)
     }, {
       case (Seq(), None, Seq(), None) => Seq(None)
       case (Seq(), varargs, kwonly, kwargs) => Seq(Some(Right(Some((varargs, kwonly, kwargs)))))
@@ -343,7 +342,7 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
     opt(delU(",").skip ~ (tfpdefDefault ~ typedArgsList5 || opt(opU("**").skip ~ tfpdef ~ opt(delU(","))))) map ({
       case Some(Left(arg ~ ((kwonly, kwargs)))) => (arg +: kwonly, kwargs)
       case Some(Right(Some(kwargs ~ _))) => (Seq(), Some(kwargs))
-      case _ => (Seq(), None) // TODO should be case None for readability
+      case _ => (Seq(), None)
     }, {
       case (Seq(), None) => Seq(None)
       case (Seq(), Some(kwargs)) => Seq(Some(Right(Some(kwargs ~ None))))
@@ -379,7 +378,7 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
     opt(delU(",").skip ~ (vfdefDefault ~ varArgsList2 || opt(varArgsList3))) map ({
       case Some(Left(arg ~ ((args, varargs, kwonly, kwargs)))) => (arg +: args, varargs, kwonly, kwargs)
       case Some(Right(Some((varargs, kwonly, kwargs)))) => (Seq(), varargs, kwonly, kwargs)
-      case _ => (Seq(), None, Seq(), None) // TODO should be case None maybe ?
+      case _ => (Seq(), None, Seq(), None)
     }, {
       case (Seq(), None, Seq(), None) => Seq(None)
       case (Seq(), varargs, kwonly, kwargs) => Seq(Some(Right(Some((varargs, kwonly, kwargs)))))
@@ -404,7 +403,7 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
     opt(delU(",").skip ~ (vfdefDefault ~ varArgsList5 || opt(opU("**").skip ~ vfdef ~ opt(delU(","))))) map ({
       case Some(Left(arg ~ ((kwonly, kwargs)))) => (arg +: kwonly, kwargs)
       case Some(Right(Some(kwargs ~ _))) => (Seq(), Some(kwargs))
-      case _ => (Seq(), None) // TODO should be case None for readability
+      case _ => (Seq(), None)
     }, {
       case (Seq(), None) => Seq(None)
       case (Seq(), Some(kwargs)) => Seq(Some(Right(Some(kwargs ~ None))))
@@ -658,7 +657,6 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
       case _ => Seq()
     })
 
-  // TODO unapply
   lazy val lambdefNoCond: Syntax[Expr] =
     kwU("lambda").skip ~ opt(varArgsList) ~ delU(":").skip ~ testNoCond map ({
       case Some((args, varargs, kwonly, kwargs)) ~ e => Lambda(Arguments(args, varargs, kwonly, kwargs), e)
@@ -1001,7 +999,7 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
     delU(":").skip ~ opt(test) ~ opt(sliceOp) map ({
       case o1 ~ o2 => (o1, o2.getOrElse(None))
     }, {
-      case (o1, o2) => Seq(o1 ~ Some(o2)) // TODO check
+      case (o1, o2) => Seq(o1 ~ Some(o2))
       case _ => Seq()
     })
 
@@ -1091,7 +1089,6 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
   lazy val testList: Syntax[Expr] =
     rep1septrWithOpt(test, delU(",")) map (testListMap, testListMapReverse)
   
-  // TODO yield trait ?
   lazy val yieldExpr: Syntax[Expr] =
     kwU("yield").skip ~ opt(testListStarExpr || kwU("from").skip ~ test) map ({
       case None => Yield(None)
@@ -1108,6 +1105,12 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
   val stringParser = LL1(test)
   val printer = PrettyPrinter(module)
   
+  /**
+    * Parses tokens into an abstract syntax tree
+    *
+    * @param tokens
+    * @return syntax tree
+    */
   def apply(tokens: Iterator[Token]): Module = {
     if (!module.isLL1) {
       debug(module)
@@ -1126,6 +1129,12 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
     res
   }
 
+  /**
+    * Parses tokens into an expression. Used for f-strings.
+    *
+    * @param tokens
+    * @return expr tree
+    */
   def parseExpr(tokens: Iterator[Token]): Expr = {
     stringParser(tokens) match {
       case LL1.Parsed(value, rest) => value
@@ -1134,6 +1143,12 @@ object Parser extends Syntaxes with ll1.Parsing with Operators with ll1.Debug wi
     }
   }
 
+  /**
+    * Pretty prints a module
+    *
+    * @param value
+    * @return
+    */
   def unapply(value: Module): Option[String] = {
     printer(value).take(1).map(Lexer.unapply(_)).toList.headOption
   }
