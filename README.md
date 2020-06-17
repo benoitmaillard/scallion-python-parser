@@ -41,6 +41,9 @@ After that, we can run the comparison from SBT. The tree produced
 by the Scala implementation is displayed, along with the result of the comparison.
 Both JSON files are stored in `debug/ref.json` and `debug/output.json` and
 can be compared manually as well.
+
+If the script displays `JNothing`, JSON4S did not find any difference with the tree from
+CPython. It means that the comparison was sucessful.
 ```
 run compare examples/django_request.py examples/django_request.json
 ```
