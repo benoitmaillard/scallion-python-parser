@@ -42,7 +42,7 @@ by the Scala implementation is displayed, along with the result of the compariso
 Both JSON files are stored in `debug/ref.json` and `debug/output.json` and
 can be compared manually as well.
 ```
-run compare examples/pprint_test.py examples/django_request.json
+run compare examples/django_request.py examples/django_request.json
 ```
 
 Some examples of files from well-known open source projects such as Djanog, Tensorflow, Pytorch
