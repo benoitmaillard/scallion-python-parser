@@ -3,6 +3,8 @@ import astpretty
 import sys
 import json
 
+import time
+
 IGNORED_FIELDS = [
     "lineno", 
     "col_offset", 
@@ -39,7 +41,11 @@ class CustomEncoder(json.JSONEncoder):
 
 def main(argv):
     with open(argv[1], 'r') as f:
+        start = time.time()
+
         tree = ast.parse(f.read())
+        end = time.time()
+        print(end - start)
 
         if (argv[0] == "pprint"):
             astpretty.pprint(tree)

@@ -35,16 +35,48 @@ object Lexer extends Lexers {
     */
   def apply(path: String): Iterator[Token] = {
     val file = new File(path)
-    tokenizeFromFile(path).get.map {
+    val (tokens, finalState) = tokenizeFromFile(path).get
+
+    val tokensFinal: List[WithPosition[Token]] = tokens match {
+      case Nil => List(WithPosition(EOF(), Position.initial, Position.initial))
+      case _ => {
+        val newLine = List[WithPosition[Token]](WithPosition(Newline(), tokens.last.start, tokens.last.end))
+        val dedents = List.fill[WithPosition[Token]](finalState._1.length - 1)(WithPosition(Dedent(), tokens.last.start, tokens.last.end))
+        val eof = List[WithPosition[Token]](WithPosition(EOF(), tokens.last.start, tokens.last.end))
+
+        tokens ::: newLine ::: dedents ::: eof
+      }
+    }
+    
+    tokensFinal.map {
       case WithPosition(token, start, end) => token.setPos(SourcePosition(file, start.line, start.column))
     }.iterator
   }
-
+  
+  /**
+    * Generates token from a path
+    *
+    * @param path path of the source file
+    * @return
+    */
   def tokenizeFromFile(path: String) = lexer.tokenizeFromFile(path)
 
+  /**
+    * Generates tokens directly from a string
+    *
+    * @param input string containing tokens
+    * @return iterator of tokens
+    */
+  def tokenizeFromString(input: String) = lexer.tokenizeFromString(input)
 
+  /**
+    * Generates token from content of a string literal. Used for f-strings
+    *
+    * @param input string content
+    * @return iterator of tokens
+    */
   def applyString(input: String): Iterator[Token] = {
-    val tokens = tokenizeFromString(input).get.filter{
+    val tokens = tokenizeFromString(input).get._1.filter{
       case WithPosition(Newline(), _, _) => false
       case _ => true
     }
@@ -53,9 +85,13 @@ object Lexer extends Lexers {
       case WithPosition(token, start, end) => token.setPos(StringPosition(start.index, input))
     }.iterator
   }
-
-  def tokenizeFromString(input: String) = lexer.tokenizeFromString(input)
-
+  
+  /**
+    * Formats the token in standardized way
+    *
+    * @param tokens tokens to display
+    * @return string ready to be displayed
+    */
   def unapply(tokens: Seq[Token]): String = {
     def reorder(tokens: Seq[Token], acc: Seq[Token]): Seq[Token] = tokens match {
       case Nil => acc
@@ -109,9 +145,9 @@ object Lexer extends Lexers {
     spaces.zip(strings).map(x => x._1 + x._2).mkString("")
   }
 
-  def digits(str: String) = str.toSeq.filter(_ != '_').mkString
+  private def digits(str: String) = str.toSeq.filter(_ != '_').mkString
   
-  def parseBigInt(seq: Seq[Char], base: Int): BigInt = {
+  private def parseBigInt(seq: Seq[Char], base: Int): BigInt = {
     seq.filter(_ != '_').reverse.zipWithIndex.foldLeft(BigInt(0)){
       case (bg, (char, i)) =>
       bg + BigInt(base).pow(i) * Integer.parseInt(char.toString, base)
@@ -179,7 +215,7 @@ object Lexer extends Lexers {
   val stringPrefix = oneOf("RF", "Rf", "rF", "rf", "FR", "fR", "Fr", "fr", "F", "f", "U", "R", "u", "r", "")
   val bytesPrefix = oneOf("RB", "Rb", "rB", "rb", "BR", "bR", "Br", "br", "B", "b")
 
-  def longString(delimiter: Char, isBytes: Boolean = false): LexerRule = {
+  private def longString(delimiter: Char, isBytes: Boolean = false): LexerRule = {
     val delimiterFull = delimiter.toString * 3
 
     val (prefix, isValidChar) = if (isBytes) (bytesPrefix, """[\x00-\x7F]""")  else (stringPrefix, """\p{all}""")
@@ -197,7 +233,7 @@ object Lexer extends Lexers {
     }
   }
 
-  def shortString(delimiter: Char, isBytes: Boolean = false): LexerRule = {
+  private def shortString(delimiter: Char, isBytes: Boolean = false): LexerRule = {
     val (prefix, isValidChar) = if (isBytes) (bytesPrefix, """[\x00-\x7F]""")  else (stringPrefix, """\p{all}""")
 
     val re = prefix ~/~ delimiter.toString ~/~
@@ -260,17 +296,7 @@ object Lexer extends Lexers {
     shortBytesSq, explicitLineJoin, binaryIntLit, octIntLit, hexIntLit, imaginaryLiteral, floatLiteral,
     decimalIntLit, keywords, operators, delimiters, openingDelimiters, closingDelimiters, identifiers,
     indentation, space
-  )((List(0), 0), {
-    case ((stack, pLevel), pos) =>
-      if (pos.index == 0) List(EOF()) // TODO condition should be (nTokens == 0)
-      else {
-        val newLine = List[Positioned[Token]](Newline())
-        val dedents = List.fill[Positioned[Token]](stack.length - 1)(Dedent())
-        val eof = List[Positioned[Token]](EOF())
-
-        newLine ::: dedents ::: eof
-      }
-  })
+  )((List(0), 0))
 }
 
 /**
