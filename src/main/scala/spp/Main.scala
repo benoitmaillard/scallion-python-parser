@@ -16,34 +16,21 @@ object Main {
   def main(args: Array[String]): Unit = args(0) match {
     case "tokenize" => Lexer(args(1)).foreach(println(_))
     case "parse" => {
-
-      val toMilli = Math.pow(10.0, -6.0)
-      
-      val startT = System.nanoTime
       val tokens = Lexer(args(1))
-
-      val lexerT = (System.nanoTime - startT) * toMilli
-
       val tree = Parser(tokens)
-
-      val totalT = (System.nanoTime - startT) * toMilli
-      println("Execution time")
-      println(f"  - Lexer : $lexerT")
-      println(f"  - Total : $totalT")
+      println(tree)
     }
     case "compare" => {
       val tokens = Lexer(args(1))
       val tree = Parser(tokens)
-      
       compare(args(2), tree)
     }
-
     case "parsedir" => {
-      parseDir(args(1))
+      parseDirMeasured(args(1))
     }
   }
 
-  def parse(file: String): Option[(Double, Double)] = Try {
+  private def parseMeasured(file: String): Option[(Double, Double)] = Try {
     val start = System.nanoTime
     val tokens = Lexer(file)
 
@@ -56,14 +43,13 @@ object Main {
     case Failure(e) => println(e.getMessage()); None
   }
 
-  def parseDir(dirPath: String) = {
+  private def parseDirMeasured(dirPath: String) = {
     val dir = new File(dirPath)
     val files = recursiveListFiles(dir).map(_.getAbsolutePath())
     val pythonFiles = files.filter(_.matches(""".*\.py"""))
     println(f"Starting parsing of ${pythonFiles.size} files")
 
-    //pythonFiles.foreach(println(_))
-    val results = pythonFiles.map(parse(_))
+    val results = pythonFiles.map(parseMeasured(_))
 
     val successes = results.collect{
       case Some((lexer, total)) => (lexer, total)
