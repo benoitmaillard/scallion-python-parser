@@ -5,26 +5,34 @@ import scala.util.{Try, Success, Failure}
 
 import scala.language.implicitConversions
 
+/**
+  * Tools to perform some validation on a tree produced by the parser
+  */
 object TreeValidation {
+    /**
+      * Performs validation on a tree
+      *
+      * @param tree module node
+      * @return Success if the tree is valid, a failure otherwise
+      */
     def validate(tree: Module): Try[Unit] = validateNode(tree)
+    
+    case class ValidationError(msg: String) extends Error(msg)
 
     private implicit def validateSeq(nodes: Seq[Tree]): Try[Unit] =
       reduceAll(nodes.map(validateNode(_)))
     private implicit def validateOption(opt: Option[Tree]): Try[Unit] =
       opt.map(validateNode(_)).getOrElse(Success())
     
-    // TODO does not belong here
-    case class SyntaxError(msg: String, position: Int = 0) extends Error(msg)
-    
-    def reduce(args: Try[Unit]*): Try[Unit] = reduceAll(args)
-    def reduceAll(args: Seq[Try[Unit]]): Try[Unit] = Try(args.map(_.get))
+    private def reduce(args: Try[Unit]*): Try[Unit] = reduceAll(args)
+    private def reduceAll(args: Seq[Try[Unit]]): Try[Unit] = Try(args.map(_.get))
 
     private implicit def validateNode(node: Tree): Try[Unit] = node match {
         case Module(body) => validateSeq(body)
         case FunctionDef(name, args, body, decorators, returns, async) =>
           reduce(args, body, decorators, returns)
         case ClassDef(name, bases, body, decorators) =>
-          reduce(validateCallArgs(bases), body, decorators)
+          reduce(bases, body, decorators)
         case Return(value) =>
           value
         case Delete(targets) =>
@@ -78,7 +86,7 @@ object TreeValidation {
         case Yield(value) => value
         case YieldFrom(value) => value
         case Compare(left, ops, comparators) => reduce(left, comparators)
-        case Call(func, args) => reduce(func, args, validateCallArgs(args))
+        case Call(func, args) => reduce(func, args, args)
         case FormattedValue(value, conversion, format) => reduce(value, format) // TODO check conversion ?
         case JoinedStr(values) => values
         case _:Constant => Success()
@@ -105,37 +113,27 @@ object TreeValidation {
 
     }
 
-    def validateArgumentNames(arguments: Arguments): Try[Unit] = {
+    private def validateArgumentNames(arguments: Arguments): Try[Unit] = {
       val names = List(
         arguments.args.map(_.arg), arguments.vararg.map(Seq(_)).getOrElse(Seq()),
         arguments.kwonly.map(_.arg), arguments.kwarg.map(Seq(_)).getOrElse(Seq())
       ).flatten
       
       if (names.toSet.size != names.size)
-        Failure(SyntaxError("duplicate argument in function definition"))
+        Failure(ValidationError("Duplicate argument in function definition"))
       else {
         Success()
       }
     }
 
-    def validateName(expr: Expr): Try[Unit] = expr match {
+    private def validateName(expr: Expr): Try[Unit] = expr match {
       case Name(name) => Success()
-      case _ => Failure(SyntaxError("argument must be a name"))
+      case _ => Failure(ValidationError("Argument must be a name"))
     }
 
-    def validateCallArgs(args: Seq[CallArg]): Try[Unit] = Success()
-      //args.foldLeft(0)((level, arg) => if (arg >= level) arg)
-
-    /*def argRank(arg: CallArg): Int = arg match {
-      case PosArg(Starred(_)) => 1
-      case PosArg(_) => 0
-      case KeywordArg(Some(_), _) => 2
-      case KeywordArg(None, _) => 3
-    }*/
-
-    def validateAssignable(expr: Expr): Try[Unit] = expr match {
+    private def validateAssignable(expr: Expr): Try[Unit] = expr match {
       case _:Attribute | _:Subscript | _:Name => Success()
       case Tuple(elts) => reduceAll(elts.map(validateAssignable(_))) // unpacking is recursive
-      case _ => Failure(SyntaxError("cannot assign to left hand-side"))
+      case _ => Failure(ValidationError("Cannot assign to left hand-side"))
     }
 }
