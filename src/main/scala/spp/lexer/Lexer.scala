@@ -52,10 +52,29 @@ object Lexer extends Lexers {
       case WithPosition(token, start, end) => token.setPos(SourcePosition(file, start.line, start.column))
     }.iterator
   }
-
+  
+  /**
+    * Generates token from a path
+    *
+    * @param path path of the source file
+    * @return
+    */
   def tokenizeFromFile(path: String) = lexer.tokenizeFromFile(path)
 
+  /**
+    * Generates tokens directly from a string
+    *
+    * @param input string containing tokens
+    * @return iterator of tokens
+    */
+  def tokenizeFromString(input: String) = lexer.tokenizeFromString(input)
 
+  /**
+    * Generates token from content of a string literal. Used for f-strings
+    *
+    * @param input string content
+    * @return iterator of tokens
+    */
   def applyString(input: String): Iterator[Token] = {
     val tokens = tokenizeFromString(input).get._1.filter{
       case WithPosition(Newline(), _, _) => false
@@ -66,9 +85,13 @@ object Lexer extends Lexers {
       case WithPosition(token, start, end) => token.setPos(StringPosition(start.index, input))
     }.iterator
   }
-
-  def tokenizeFromString(input: String) = lexer.tokenizeFromString(input)
-
+  
+  /**
+    * Formats the token in standardized way
+    *
+    * @param tokens tokens to display
+    * @return string ready to be displayed
+    */
   def unapply(tokens: Seq[Token]): String = {
     def reorder(tokens: Seq[Token], acc: Seq[Token]): Seq[Token] = tokens match {
       case Nil => acc
@@ -122,9 +145,9 @@ object Lexer extends Lexers {
     spaces.zip(strings).map(x => x._1 + x._2).mkString("")
   }
 
-  def digits(str: String) = str.toSeq.filter(_ != '_').mkString
+  private def digits(str: String) = str.toSeq.filter(_ != '_').mkString
   
-  def parseBigInt(seq: Seq[Char], base: Int): BigInt = {
+  private def parseBigInt(seq: Seq[Char], base: Int): BigInt = {
     seq.filter(_ != '_').reverse.zipWithIndex.foldLeft(BigInt(0)){
       case (bg, (char, i)) =>
       bg + BigInt(base).pow(i) * Integer.parseInt(char.toString, base)
@@ -192,7 +215,7 @@ object Lexer extends Lexers {
   val stringPrefix = oneOf("RF", "Rf", "rF", "rf", "FR", "fR", "Fr", "fr", "F", "f", "U", "R", "u", "r", "")
   val bytesPrefix = oneOf("RB", "Rb", "rB", "rb", "BR", "bR", "Br", "br", "B", "b")
 
-  def longString(delimiter: Char, isBytes: Boolean = false): LexerRule = {
+  private def longString(delimiter: Char, isBytes: Boolean = false): LexerRule = {
     val delimiterFull = delimiter.toString * 3
 
     val (prefix, isValidChar) = if (isBytes) (bytesPrefix, """[\x00-\x7F]""")  else (stringPrefix, """\p{all}""")
@@ -210,7 +233,7 @@ object Lexer extends Lexers {
     }
   }
 
-  def shortString(delimiter: Char, isBytes: Boolean = false): LexerRule = {
+  private def shortString(delimiter: Char, isBytes: Boolean = false): LexerRule = {
     val (prefix, isValidChar) = if (isBytes) (bytesPrefix, """[\x00-\x7F]""")  else (stringPrefix, """\p{all}""")
 
     val re = prefix ~/~ delimiter.toString ~/~
