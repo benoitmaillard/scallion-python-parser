@@ -87,7 +87,7 @@ object TreeValidation {
         case YieldFrom(value) => value
         case Compare(left, ops, comparators) => reduce(left, comparators)
         case Call(func, args) => reduce(func, args, args)
-        case FormattedValue(value, conversion, format) => reduce(value, format) // TODO check conversion ?
+        case FormattedValue(value, conversion, format) => reduce(value, format)
         case JoinedStr(values) => values
         case _:Constant => Success()
         case Attribute(value, attr) => value

@@ -10,7 +10,6 @@ object Tokens {
     }
   }
   
-  // TODO intermediary tokens for indent/dedent
   final case class Newline() extends Token
   final case class Indent() extends Token
   final case class Dedent() extends Token

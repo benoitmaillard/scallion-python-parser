@@ -77,7 +77,6 @@ object StringLiteralParser {
     val tokens = Lexer.applyString(str).toList
 
     // we are looking for 3 things : !, :, } at level 0
-    // TODO: add surrounding parentheses !!! (maybe rather in extractExpr)
     val (exprTokens, tokenAfter) = findExprEnd(tokens, List()).get
 
     (exprTokens, str.substring(tokenAfter.position.col))

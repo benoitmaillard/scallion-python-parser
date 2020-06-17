@@ -340,7 +340,7 @@ object TreeSerializer {
     case NoneValue =>
       mkName("Constant") ~
       ("type" -> "NoneType") ~
-      ("value" -> None) // TODO ?
+      ("value" -> None)
     case Ellipsis =>
       mkName("Constant") ~
       ("type" -> "ellipsis") ~

@@ -73,9 +73,9 @@ object StringDecoder extends Lexers {
   val rawFormatLexer = Lexer((formatRules :+ defaultRule): _*)(None)
 
   def unicodeFromName(name: String): Char =
-      if (name == "LF") '\n'
-      else if (name == "TAB") '\t'
-      else '\u0000' // TODO complete
+    if (name == "LF") '\n'
+    else if (name == "TAB") '\t'
+    else '\u0000'
 
   def replace(pattern: String, replacement: Char): LexerRule =
     unit(pattern) |> { case (value, List(str)) => (value, List(replacement)) }
